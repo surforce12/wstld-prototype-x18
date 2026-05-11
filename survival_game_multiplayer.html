@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WASTELAND</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Russo+One&display=swap');
+:root{--bg:#0a0c08;--panel:#0e1208ee;--border:#2a3a1a;--green:#4ade80;--gdim:#1a3a20;--yellow:#facc15;--red:#ef4444;--orange:#fb923c;--blue:#60a5fa;--text:#c8d8b0;--dim:#5a6a4a;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;overflow:hidden;user-select:none;}
+#canvas{position:fixed;inset:0;width:100%;height:100%;background:#0d1208;cursor:crosshair;}
+/* HUD */
+#hud{position:fixed;top:12px;left:12px;display:none;flex-direction:column;gap:6px;pointer-events:none;z-index:10;}
+.hbox{background:#0d1208cc;border:1px solid var(--border);backdrop-filter:blur(6px);border-radius:3px;padding:6px 10px;}
+.htime{font-family:'Russo One',sans-serif;font-size:22px;color:var(--green);text-shadow:0 0 10px #4ade8055;line-height:1;}
+.hmeta{font-size:10px;color:var(--dim);letter-spacing:1px;line-height:1.6;}
+.hphase{color:var(--yellow);}
+.hthreat{color:var(--red);font-size:11px;letter-spacing:1px;}
+.hrow{display:flex;align-items:center;gap:8px;}
+#hbars{display:flex;flex-direction:column;gap:4px;}
+.sb{display:flex;align-items:center;gap:6px;}
+.sbico{font-size:11px;width:14px;}
+.sbtrack{width:110px;height:6px;background:#1a2010;border:1px solid var(--border);border-radius:1px;overflow:hidden;}
+.sbfill{height:100%;border-radius:1px;transition:width .3s ease;}
+.fhp{background:var(--red);}.fhu{background:var(--orange);}.ftm{background:var(--blue);}.fxp{background:var(--yellow);}
+.sbval{font-size:10px;color:var(--dim);width:24px;text-align:right;}
+/* HOTBAR */
+#hotbar{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:none;gap:6px;background:#0d1208cc;border:1px solid var(--border);padding:6px;border-radius:3px;backdrop-filter:blur(4px);z-index:10;}
+.hs{width:46px;height:46px;background:#111510;border:1px solid var(--border);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;cursor:pointer;transition:border-color .1s;}
+.hs.active{border-color:var(--yellow);box-shadow:0 0 8px #facc1566;}
+.hn{position:absolute;top:2px;left:4px;font-size:8px;color:var(--dim);}
+/* PANEL BUTTONS */
+#pbtns{position:fixed;bottom:14px;left:12px;display:none;gap:5px;z-index:10;}
+.pbtn{background:#0d1208cc;border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;padding:5px 10px;border-radius:3px;cursor:pointer;backdrop-filter:blur(6px);transition:all .15s;letter-spacing:1px;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.pbtn .pk{font-size:8px;color:var(--dim);}
+.pbtn:hover,.pbtn.on{background:var(--gdim);border-color:var(--green);color:var(--green);}
+/* PANELS */
+.fp{position:fixed;z-index:20;background:var(--panel);border:1px solid var(--border);backdrop-filter:blur(14px);border-radius:4px;padding:12px;min-width:190px;display:none;flex-direction:column;gap:7px;box-shadow:0 4px 32px #00000099;}
+.fp.open{display:flex;}
+#fp-craft{left:12px;top:50%;transform:translateY(-50%);}
+#fp-inv{right:12px;top:50%;transform:translateY(-50%);}
+#fp-res{right:12px;bottom:72px;}
+.fpt{font-family:'Russo One',sans-serif;font-size:10px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
+.fpc{cursor:pointer;color:var(--dim);font-size:13px;}
+.fpc:hover{color:var(--red);}
+/* Resources */
+.rg{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+.ri{background:#0d1208;border:1px solid var(--border);padding:6px 8px;border-radius:2px;display:flex;align-items:center;gap:6px;font-size:12px;}
+.rico{font-size:15px;}.rcnt{color:var(--green);font-weight:bold;}
+.lvlrow{display:flex;align-items:center;gap:6px;margin-top:2px;}
+.lvllbl{font-size:10px;color:var(--dim);}
+.lvltrk{flex:1;height:6px;background:#1a2010;border:1px solid var(--border);border-radius:1px;overflow:hidden;}
+.lvlval{font-size:10px;color:var(--yellow);}
+/* Crafting */
+.cbtn{background:var(--gdim);border:1px solid #2a5a30;color:var(--green);font-family:'Share Tech Mono',monospace;font-size:11px;padding:5px 8px;cursor:pointer;border-radius:2px;width:100%;text-align:left;transition:all .15s;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center;}
+.cbtn:hover:not(:disabled){background:#2a5a30;border-color:var(--green);}
+.cbtn:disabled{opacity:.35;cursor:not-allowed;}
+.cc{font-size:9px;color:var(--dim);}
+/* Inventory */
+.ig{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;}
+.is{aspect-ratio:1;background:#0d1208;border:1px solid var(--border);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:15px;position:relative;cursor:pointer;transition:border-color .15s;}
+.is:hover{border-color:var(--green);}
+.ic{position:absolute;bottom:1px;right:3px;font-size:8px;color:var(--green);}
+/* MINIMAP */
+#minimap{position:fixed;top:12px;right:12px;width:110px;height:110px;border:1px solid var(--border);background:#0a0c08;border-radius:3px;display:none;z-index:10;}
+/* OVERLAYS */
+#nover{position:fixed;inset:0;background:#00001888;pointer-events:none;opacity:0;transition:opacity 2s ease;z-index:5;}
+#dflash{position:fixed;inset:0;background:#ef444411;pointer-events:none;opacity:0;transition:opacity .1s;z-index:6;}
+/* LOG */
+#log{position:fixed;bottom:72px;left:12px;width:260px;pointer-events:none;z-index:10;}
+.le{font-size:11px;color:var(--dim);animation:fl 4s forwards;line-height:1.7;}
+.le.good{color:var(--green);}.le.warn{color:var(--yellow);}.le.danger{color:var(--red);}
+@keyframes fl{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
+/* SPLASH */
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;gap:18px;}
+#splash h1{font-family:'Russo One',sans-serif;font-size:54px;color:var(--green);text-shadow:0 0 30px #4ade8088;letter-spacing:6px;}
+#splash p{color:var(--dim);font-size:13px;text-align:center;line-height:2;}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px 24px;font-size:11px;color:var(--dim);border:1px solid var(--border);padding:12px 20px;border-radius:3px;}
+.cgrid span{color:var(--text);}
+#sbtn{background:var(--gdim);border:2px solid var(--green);color:var(--green);font-family:'Russo One',sans-serif;font-size:16px;padding:12px 38px;letter-spacing:4px;cursor:pointer;border-radius:2px;transition:all .2s;text-shadow:0 0 8px #4ade8066;}
+#sbtn:hover{background:#2a5a30;box-shadow:0 0 20px #4ade8044;}
+.netbox{width:min(460px,92vw);border:1px solid var(--border);background:#0d1208cc;border-radius:3px;padding:12px;display:grid;gap:8px;}
+.netrow{display:flex;gap:6px;align-items:center;}
+.netrow input{flex:1;min-width:0;background:#090c06;border:1px solid var(--border);color:var(--green);font-family:'Share Tech Mono',monospace;font-size:12px;padding:8px;border-radius:2px;}
+.netrow button{background:#101a0c;border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;padding:8px 10px;border-radius:2px;cursor:pointer;}
+.netrow button:hover{border-color:var(--green);color:var(--green);}
+#netstatus{font-size:11px;color:var(--dim);line-height:1.5;min-height:18px;}
+#peerid{color:var(--yellow);user-select:text;}
+/* DEATH */
+#dscr{display:none;position:fixed;inset:0;background:#00000099;z-index:50;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+#dscr h2{font-family:'Russo One',sans-serif;font-size:44px;color:var(--red);text-shadow:0 0 20px #ef444488;letter-spacing:4px;}
+#dstats{color:#888;font-size:13px;text-align:center;line-height:2;}
+#rbtn{background:#3a0a0a;border:2px solid var(--red);color:var(--red);font-family:'Russo One',sans-serif;font-size:14px;padding:10px 28px;letter-spacing:3px;cursor:pointer;border-radius:2px;}
+#rbtn:hover{background:#5a1010;}
+/* WAVE */
+#walert{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Russo One',sans-serif;font-size:32px;color:var(--red);text-shadow:0 0 20px #ef444488;letter-spacing:4px;opacity:0;pointer-events:none;z-index:15;text-align:center;transition:opacity .3s;}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="nover"></div>
+<div id="dflash"></div>
+
+<!-- HUD top-left -->
+<div id="hud">
+  <div class="hrow">
+    <div class="hbox">
+      <div class="htime" id="htime">06:00</div>
+      <div class="hmeta"><span id="hday">DAY 1</span> &nbsp;<span class="hphase" id="hphase">☀ MORNING</span></div>
+    </div>
+    <div class="hbox">
+      <div class="hthreat">☣ <span id="hghouls">0</span> GHOULS</div>
+      <div class="hmeta">Wave <span id="hwave">1</span></div>
+    </div>
+  </div>
+  <div class="hbox" id="hbars">
+    <div class="sb"><span class="sbico">❤</span><div class="sbtrack"><div class="sbfill fhp" id="bhp" style="width:100%"></div></div><span class="sbval" id="vhp">100</span></div>
+    <div class="sb"><span class="sbico">🍖</span><div class="sbtrack"><div class="sbfill fhu" id="bhu" style="width:100%"></div></div><span class="sbval" id="vhu">100</span></div>
+    <div class="sb"><span class="sbico">🌡</span><div class="sbtrack"><div class="sbfill ftm" id="btm" style="width:80%"></div></div><span class="sbval" id="vtm">80</span></div>
+    <div class="sb"><span class="sbico">⭐</span><div class="sbtrack"><div class="sbfill fxp" id="bxp" style="width:0%"></div></div><span class="sbval" id="vlvl">1</span></div>
+  </div>
+</div>
+
+<canvas id="minimap"></canvas>
+
+<!-- Panel buttons -->
+<div id="pbtns">
+  <button class="pbtn" id="pb-craft" onclick="togglePanel('craft')"><span class="pk">[C]</span>🔨 Craft</button>
+  <button class="pbtn" id="pb-inv"   onclick="togglePanel('inv')">  <span class="pk">[I]</span>🎒 Items</button>
+  <button class="pbtn" id="pb-res"   onclick="togglePanel('res')">  <span class="pk">[R]</span>📦 Res</button>
+</div>
+
+<!-- Hotbar -->
+<div id="hotbar">
+  <div class="hs active" id="h0"><span class="hn">1</span>✊</div>
+  <div class="hs" id="h1"><span class="hn">2</span></div>
+  <div class="hs" id="h2"><span class="hn">3</span></div>
+  <div class="hs" id="h3"><span class="hn">4</span></div>
+</div>
+
+<!-- CRAFT panel — left middle -->
+<div class="fp" id="fp-craft">
+  <div class="fpt">🔨 Crafting <span class="fpc" onclick="closePanel('craft')">✕</span></div>
+  <button class="cbtn" id="craft-hatchet"  onclick="craft('hatchet')"> 🪓 Hatchet  <span class="cc">5🪵 3🪨</span></button>
+  <button class="cbtn" id="craft-pickaxe"  onclick="craft('pickaxe')"> ⛏ Pickaxe  <span class="cc">5🪵 8🪨</span></button>
+  <button class="cbtn" id="craft-campfire" onclick="craft('campfire')">🔥 Campfire <span class="cc">8🪵</span></button>
+  <button class="cbtn" id="craft-torch"    onclick="craft('torch')">   🕯 Torch    <span class="cc">3🪵 1🌿</span></button>
+  <button class="cbtn" id="craft-wall"     onclick="craft('wall')">    🧱 Wall     <span class="cc">10🪵 5🪨</span></button>
+  <button class="cbtn" id="craft-spikes"   onclick="craft('spikes')">  🪤 Spikes   <span class="cc">5🪨 3⚙️</span></button>
+  <button class="cbtn" id="craft-bow"      onclick="craft('bow')">     🏹 Bow      <span class="cc">8🪵 3🌿</span></button>
+  <button class="cbtn" id="craft-bandage"  onclick="craft('bandage')"> 🩹 Bandage  <span class="cc">4🌿</span></button>
+  <button class="cbtn" id="craft-stew"     onclick="craft('stew')">    🍲 Stew     <span class="cc">4🌿 2🪵</span></button>
+</div>
+
+<!-- INVENTORY panel — right middle -->
+<div class="fp" id="fp-inv">
+  <div class="fpt">🎒 Inventory <span class="fpc" onclick="closePanel('inv')">✕</span></div>
+  <div class="ig" id="igrid"></div>
+  <div style="font-size:9px;color:var(--dim)">Click item to equip / F to use</div>
+</div>
+
+<!-- RESOURCES panel — bottom right -->
+<div class="fp" id="fp-res">
+  <div class="fpt">📦 Resources <span class="fpc" onclick="closePanel('res')">✕</span></div>
+  <div class="rg">
+    <div class="ri"><span class="rico">🪵</span><span class="rcnt" id="rwood">0</span></div>
+    <div class="ri"><span class="rico">🪨</span><span class="rcnt" id="rstone">0</span></div>
+    <div class="ri"><span class="rico">🌿</span><span class="rcnt" id="rfood">0</span></div>
+    <div class="ri"><span class="rico">⚙️</span><span class="rcnt" id="rmetal">0</span></div>
+  </div>
+  <div class="lvlrow">
+    <span class="lvllbl">⭐ LVL</span>
+    <div class="lvltrk"><div class="sbfill fxp" id="bxp2" style="width:0%"></div></div>
+    <span class="lvlval" id="vlvl2">1</span>
+  </div>
+</div>
+
+<div id="log"></div>
+<div id="walert"></div>
+
+<div id="dscr">
+  <h2>☠ YOU DIED</h2>
+  <div id="dstats"></div>
+  <button id="rbtn" onclick="respawn()">⟳ RESPAWN</button>
+</div>
+
+<div id="splash">
+  <h1>☢ WASTELAND</h1>
+  <p>Gather. Craft. Build. Survive the night.</p>
+  <div class="cgrid">
+    <div><span>WASD</span> — move</div><div><span>E</span> — gather</div>
+    <div><span>SPACE/Click</span> — attack</div><div><span>F</span> — use item</div>
+    <div><span>C</span> — crafting</div><div><span>I</span> — inventory</div>
+    <div><span>R</span> — resources</div><div><span>M</span> — minimap</div>
+  </div>
+  <button id="sbtn" onclick="startGame()">▶ SURVIVE</button>
+</div>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+'use strict';
+// ═══ CONSTANTS ═══
+const TILE=40,MAP_W=64,MAP_H=64,DAY_DUR=240,PR=8,GR=TILE*1.5;
+const T={GRASS:0,TREE:1,ROCK:2,WATER:3,SAND:4,ORE:5,PLANT:6,FIRE:7,WALL:8,SPIKE:9,TORCH:10};
+const SOLID=new Set([T.WATER,T.TREE,T.ROCK,T.ORE]);
+const TCOL={0:'#1a2e10',1:'#0d2008',2:'#2a2520',3:'#0a1a2a',4:'#2a2010',5:'#1a1520',6:'#162a08',7:'#3a2000',8:'#2a2520',9:'#221a10',10:'#1a1800'};
+
+// ═══ STATE ═══
+let S={},keys={},mouse={x:0,y:0},running=false,last=0;
+const NET={
+  mode:'solo',peer:null,conn:null,id:'',remoteInput:null,guestName:'GUEST',
+  inputTimer:0,snapTimer:0,connected:false,started:false,looping:false,
+  mapSent:false,tileDirty:[]
+};
+
+function setNetStatus(msg){
+  const el=document.getElementById('netstatus');
+  if(el)el.textContent=msg;
+  console.log('[NETWORK]', msg);
+}
+
+function ensureNetworkUi(){
+  const splash=document.getElementById('splash');
+  if(!splash||document.getElementById('netstatus'))return;
+  const box=document.createElement('div');
+  box.className='netbox';
+  box.innerHTML=[
+    '<div class="netrow"><input id="nickname" maxlength="16" placeholder="Your nickname"></div>',
+    '<div class="netrow"><button onclick="hostGame()">HOST CO-OP</button><button onclick="copyPeerId()">COPY ID</button><span id="peerid"></span></div>',
+    '<div class="netrow"><input id="joinid" placeholder="Friend host ID"><button onclick="joinGame()">JOIN</button></div>',
+    '<div id="netstatus">Solo works offline. Co-op uses a free public WebRTC signal server.</div>'
+  ].join('');
+  splash.insertBefore(box,document.getElementById('sbtn'));
+}
+ensureNetworkUi();
+
+// Check PeerJS loading
+setTimeout(()=>{
+  if(!hasPeer()){
+    console.error('[INIT] PeerJS failed to load from CDN');
+    setNetStatus('PeerJS library failed to load. Check internet connection.');
+  } else {
+    console.log('[INIT] PeerJS loaded successfully');
+  }
+}, 2000);
+
+function cleanName(value,fallback){
+  const name=String(value||'').trim().replace(/[<>]/g,'').slice(0,16);
+  return name||fallback;
+}
+
+function localName(fallback){
+  return cleanName(document.getElementById('nickname')?.value,fallback);
+}
+
+function sendHello(){
+  if(NET.mode==='guest')sendNet({type:'hello',name:localName('GUEST')});
+}
+
+function playerLoadout(){
+  return{
+    res:{wood:0,stone:0,food:0,metal:0},
+    bag:[],hotbar:['✊','','',''],hsel:0
+  };
+}
+
+function makePlayer(name){
+  return{x:0,y:0,hp:100,maxhp:100,hun:100,tmp:80,xp:0,xpn:100,lvl:1,spd:130,ang:0,inv:0,name,...playerLoadout()};
+}
+
+function playerRes(player=S.p){return player.res||(player.res={wood:0,stone:0,food:0,metal:0});}
+function playerBag(player=S.p){return player.bag||(player.bag=[]);}
+function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊','','','']);}
+
+function mkState(){
+  return{
+    p:makePlayer('HOST'),
+    p2:null,remotePlayer:null,
+    time:6*3600,day:1,wave:1,wleft:0,
+    map:[],ghouls:[],loot:[],objs:[],
+    cam:{x:0,y:0},stats:{surv:0,kills:0},stimer:0,
+  };
+}
+
+function clonePlayer(p,name){
+  return {...p,...playerLoadout(),hp:p.maxhp,hun:100,tmp:80,xp:0,xpn:100,lvl:1,inv:0,name};
+}
+
+function hasPeer(){
+  const loaded=typeof Peer!=='undefined';
+  if(!loaded){
+    console.error('[NETWORK] PeerJS library not loaded');
+  }
+  return loaded;
+}
+
+function hostGame(){
+  if(!hasPeer()){setNetStatus('PeerJS did not load. Check internet, then reload.');return;}
+  if(NET.peer){setNetStatus('Already hosting. Refresh to create new room.');return;}
+  NET.mode='host';
+  console.log('[HOST] Creating new Peer instance...');
+  NET.peer=new Peer();
+  setNetStatus('Creating host room...');
+  NET.peer.on('open',id=>{
+    NET.id=id;
+    document.getElementById('peerid').textContent=id;
+    console.log('[HOST] Room created with ID:', id);
+    setNetStatus('Send this ID to your friend, then press SURVIVE.');
+  });
+  NET.peer.on('connection',conn=>{
+    if(NET.conn){
+      console.log('[HOST] Extra connection rejected');
+      conn.close();return;
+    }
+    console.log('[HOST] Guest connecting...');
+    attachConnection(conn);
+    setNetStatus('Friend connected. Host owns the world simulation.');
+  });
+  NET.peer.on('error',err=>{
+    console.error('[HOST] Peer error:', err);
+    setNetStatus(`Network error: ${err.type||err.message}`);
+  });
+  NET.peer.on('disconnected',()=>{
+    console.log('[HOST] Disconnected from PeerJS server');
+    setNetStatus('Lost connection to PeerJS server. Try refreshing.');
+  });
+}
+
+function joinGame(){
+  if(!hasPeer()){setNetStatus('PeerJS did not load. Check internet, then reload.');return;}
+  const id=(document.getElementById('joinid').value||'').trim();
+  if(!id){setNetStatus('Paste your friend host ID first.');return;}
+  NET.mode='guest';
+  console.log('[GUEST] Connecting to host ID:', id);
+  NET.peer=new Peer();
+  setNetStatus('Connecting...');
+  NET.peer.on('open',()=>{
+    console.log('[GUEST] Peer opened, attempting connection to host...');
+    const conn=NET.peer.connect(id,{reliable:false});
+    if(!conn){
+      console.error('[GUEST] Failed to create connection');
+      setNetStatus('Failed to create connection. Check host ID.');
+      return;
+    }
+    attachConnection(conn);
+  });
+  NET.peer.on('error',err=>{
+    console.error('[GUEST] Peer error:', err);
+    setNetStatus(`Network error: ${err.type||err.message}`);
+  });
+  NET.peer.on('disconnected',()=>{
+    console.log('[GUEST] Disconnected from PeerJS server');
+    setNetStatus('Lost connection to PeerJS server. Try refreshing.');
+  });
+}
+
+function attachConnection(conn){
+  NET.conn=conn;
+  console.log(`[${NET.mode.toUpperCase()}] Attaching connection handlers...`);
+  conn.on('open',()=>{
+    NET.connected=true;
+    NET.mapSent=false;
+    NET.tileDirty=[];
+    console.log(`[${NET.mode.toUpperCase()}] Connection opened successfully!`);
+    if(NET.mode==='guest'){
+      console.log('[GUEST] Sending hello message...');
+      sendHello();
+    }
+    if(NET.mode==='host'&&running&&!S.p2){
+      S.p2=clonePlayer(S.p,NET.guestName);
+      const sp=findSafeNear(S.p.x,S.p.y);
+      S.p2.x=sp.x;S.p2.y=sp.y;S.remotePlayer=S.p2;
+      console.log('[HOST] Created guest player at position:', sp);
+    }
+    setNetStatus(NET.mode==='host'?'Friend connected. Press SURVIVE.':'Connected. Waiting for host world...');
+  });
+  conn.on('data',handleNetMessage);
+  conn.on('close',()=>{
+    NET.connected=false;
+    console.log(`[${NET.mode.toUpperCase()}] Connection closed`);
+    setNetStatus('Friend disconnected.');
+  });
+  conn.on('error',err=>{
+    console.error(`[${NET.mode.toUpperCase()}] Connection error:`, err);
+    setNetStatus(`Connection error: ${err.message||err}`);
+  });
+}
+
+function copyPeerId(){
+  if(!NET.id){setNetStatus('Host first, then copy the generated ID.');return;}
+  navigator.clipboard?.writeText(NET.id);
+  setNetStatus('Host ID copied.');
+}
+
+function sendNet(msg){
+  if(!NET.conn||!NET.conn.open){
+    console.warn(`[${NET.mode.toUpperCase()}] Cannot send - connection not open`);
+    return;
+  }
+  try{
+    NET.conn.send(msg);
+    console.log(`[${NET.mode.toUpperCase()}] Sent:`, msg.type, msg);
+  }
+  catch(err){
+    console.error(`[${NET.mode.toUpperCase()}] Send failed:`, err);
+    setNetStatus(`Send failed: ${err.message||err}`);
+  }
+}
+
+function netState(includeMap=false){
+  const state={
+    p:{...S.p},p2:S.p2?{...S.p2}:null,
+    time:S.time,day:S.day,wave:S.wave,wleft:S.wleft,
+    ghouls:S.ghouls.map(g=>({...g})),
+    loot:S.loot.map(l=>({...l})),objs:S.objs.map(o=>({...o})),
+    cam:{...S.cam},stats:{...S.stats},stimer:S.stimer,
+    tileChanges:NET.tileDirty.splice(0)
+  };
+  if(includeMap)state.map=S.map;
+  return state;
+}
+
+function markTileDirty(tx,ty,tile){
+  if(NET.mode==='host'&&NET.connected)NET.tileDirty.push({tx,ty,t:tile.t,r:tile.r});
+}
+
+function applyTileChanges(map,changes){
+  if(!map||!changes)return;
+  changes.forEach(c=>{
+    if(map[c.ty]&&map[c.ty][c.tx])map[c.ty][c.tx]={t:c.t,r:c.r};
+  });
+}
+
+function handleNetMessage(msg){
+  if(!msg||!msg.type){
+    console.warn(`[${NET.mode.toUpperCase()}] Received empty or invalid message:`, msg);
+    return;
+  }
+  console.log(`[${NET.mode.toUpperCase()}] Received:`, msg.type, msg);
+  
+  if(NET.mode==='host'&&msg.type==='hello'){
+    NET.guestName=cleanName(msg.name,'GUEST');
+    if(S.p2)S.p2.name=NET.guestName;
+    console.log('[HOST] Guest introduced as:', NET.guestName);
+  }
+  if(NET.mode==='host'&&msg.type==='input'){
+    NET.remoteInput=msg.input;
+    NET.guestName=cleanName(msg.input.name,NET.guestName);
+    if(S.p2)S.p2.name=NET.guestName;
+  }
+  if(NET.mode==='host'&&msg.type==='action'&&S.p2){
+    NET.guestName=cleanName(msg.name,NET.guestName);
+    if(S.p2)S.p2.name=NET.guestName;
+    const aim=msg.aim||(NET.remoteInput?{x:NET.remoteInput.aimX,y:NET.remoteInput.aimY}:null);
+    console.log('[HOST] Guest action:', msg.action, msg.id||'');
+    if(msg.action==='interact')interact(S.p2,aim);
+    if(msg.action==='attack')attack(S.p2);
+    if(msg.action==='use')useItem(S.p2);
+    if(msg.action==='craft')craft(msg.id,S.p2);
+  }
+  if(NET.mode==='guest'&&msg.type==='state'){
+    console.log('[GUEST] Received world state from host');
+    const prev=S||{},next=msg.state;
+    const map=next.map||prev.map;
+    applyTileChanges(map,next.tileChanges);
+    S={...next,map};
+    const host=S.p,guest=S.p2;
+    if(guest){S.p=guest;S.remotePlayer=host;}
+    else S.remotePlayer=null;
+    NET.started=true;
+    showGameUi();
+    resizeCanvases();
+    const cv=document.getElementById('canvas');
+    S.cam.x=S.p.x-cv.width/2;S.cam.y=S.p.y-cv.height/2;
+    updateHUD();updateClock();updateNight();
+    startLoop();
+    console.log('[GUEST] Game started successfully!');
+  }
+}
+
+// ═══ MAP ═══
+function genMap(){
+  const m=[];
+  for(let y=0;y<MAP_H;y++){m[y]=[];
+    for(let x=0;x<MAP_W;x++){
+      if(x<2||x>MAP_W-3||y<2||y>MAP_H-3){m[y][x]={t:T.WATER,r:0};continue;}
+      const v=Math.random();
+      if(v<.15)      m[y][x]={t:T.TREE, r:3+~~(Math.random()*3)};
+      else if(v<.22) m[y][x]={t:T.ROCK, r:3+~~(Math.random()*3)};
+      else if(v<.25) m[y][x]={t:T.SAND, r:0};
+      else if(v<.29) m[y][x]={t:T.ORE,  r:2+~~(Math.random()*2)};
+      else if(v<.35) m[y][x]={t:T.PLANT,r:2+~~(Math.random()*3)};
+      else           m[y][x]={t:T.GRASS,r:0};
+    }
+  }
+  return m;
+}
+
+function findSpawn(){
+  const cx=~~(MAP_W/2),cy=~~(MAP_H/2);
+  for(let r=0;r<20;r++)for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+    const tx=cx+dx,ty=cy+dy;
+    if(tx<1||ty<1||tx>=MAP_W-1||ty>=MAP_H-1)continue;
+    if(S.map[ty][tx].t===T.GRASS)return{x:tx*TILE+TILE/2,y:ty*TILE+TILE/2};
+  }
+  return{x:cx*TILE,y:cy*TILE};
+}
+
+// ═══ COLLISION ═══
+function solid(tx,ty){
+  if(tx<0||ty<0||tx>=MAP_W||ty>=MAP_H)return true;
+  const t=S.map[ty][tx];
+  if(!t||SOLID.has(t.t))return true;
+  return S.objs.some(o=>o.t===T.WALL&&~~(o.x/TILE)===tx&&~~(o.y/TILE)===ty);
+}
+function canWalk(cx,cy){
+  const r=PR;
+  return![[cx-r,cy-r],[cx+r,cy-r],[cx-r,cy+r],[cx+r,cy+r]]
+    .some(([px,py])=>solid(~~(px/TILE),~~(py/TILE)));
+}
+
+function findSafeNear(x,y){
+  const cx=~~(x/TILE),cy=~~(y/TILE);
+  for(let r=1;r<8;r++){
+    for(let dy=-r;dy<=r;dy++)for(let dx=-r;dx<=r;dx++){
+      if(Math.max(Math.abs(dx),Math.abs(dy))!==r)continue;
+      const px=(cx+dx)*TILE+TILE/2,py=(cy+dy)*TILE+TILE/2;
+      if(canWalk(px,py))return{x:px,y:py};
+    }
+  }
+  return findSpawn();
+}
+
+// ═══ GHOULS ═══
+const GDEF={walker:{hp:50,spd:45,dmg:12,em:'👻',xp:25},runner:{hp:30,spd:95,dmg:8,em:'💨',xp:20},brute:{hp:120,spd:28,dmg:25,em:'👾',xp:50}};
+
+function spawnGhoul(type){
+  const d=GDEF[type]||GDEF.walker;
+  const p=S.p;let gx,gy,tr=0;
+  do{gx=(2+~~(Math.random()*(MAP_W-4)))*TILE;gy=(2+~~(Math.random()*(MAP_H-4)))*TILE;tr++;}
+  while(Math.hypot(gx-p.x,gy-p.y)<450&&tr<50);
+  S.ghouls.push({x:gx,y:gy,hp:d.hp,mhp:d.hp,spd:d.spd,dmg:d.dmg,em:d.em,type,acd:0});
+}
+
+// ═══ GAME LOOP ═══
+function loop(ts){
+  if(!running){NET.looping=false;return;}
+  const dt=Math.min((ts-last)/1000,.05);last=ts;
+  update(dt);render();requestAnimationFrame(loop);
+}
+
+function startLoop(){
+  running=true;
+  if(NET.looping)return;
+  NET.looping=true;
+  last=performance.now();
+  requestAnimationFrame(loop);
+}
+
+function movePlayer(p,input,dt){
+  let dx=0,dy=0;
+  const k=input||keys;
+  if(k['w']||k['arrowup'])    dy=-1;
+  if(k['s']||k['arrowdown'])  dy= 1;
+  if(k['a']||k['arrowleft'])  dx=-1;
+  if(k['d']||k['arrowright']) dx= 1;
+  if(dx&&dy){dx*=.707;dy*=.707;}
+  const spd=p.spd*dt;
+  if(canWalk(p.x+dx*spd,p.y))p.x+=dx*spd;
+  if(canWalk(p.x,p.y+dy*spd))p.y+=dy*spd;
+}
+
+function alivePlayers(){
+  return [S.p,S.p2].filter(p=>p&&p.hp>0);
+}
+
+function currentAim(){
+  const cv=document.getElementById('canvas'),r=cv.getBoundingClientRect();
+  return {x:mouse.x-r.left+S.cam.x,y:mouse.y-r.top+S.cam.y};
+}
+
+function sendGuestInput(dt){
+  NET.inputTimer-=dt;
+  if(NET.inputTimer>0)return;
+  NET.inputTimer=.05;
+  const aim=currentAim();
+  sendNet({type:'input',input:{
+    keys:{w:!!keys.w,a:!!keys.a,s:!!keys.s,d:!!keys.d,arrowup:!!keys.arrowup,arrowdown:!!keys.arrowdown,arrowleft:!!keys.arrowleft,arrowright:!!keys.arrowright},
+    aimX:aim.x,aimY:aim.y,ang:S.p?.ang||0,name:localName('GUEST')
+  }});
+}
+
+function broadcastState(dt){
+  if(NET.mode!=='host'||!NET.connected)return;
+  NET.snapTimer-=dt;
+  if(NET.snapTimer>0)return;
+  NET.snapTimer=.05;
+  const includeMap=!NET.mapSent;
+  sendNet({type:'state',state:netState(includeMap)});
+  if(includeMap)NET.mapSent=true;
+}
+
+function update(dt){
+  const p=S.p;
+  if(NET.mode==='guest'){
+    sendGuestInput(dt);
+    if(S.p&&S.map&&S.map.length)movePlayer(S.p,keys,dt);
+    const cv=document.getElementById('canvas');
+    if(S.p){S.cam.x=S.p.x-cv.width/2;S.cam.y=S.p.y-cv.height/2;}
+    updateHUD();updateClock();updateNight();
+    return;
+  }
+  // Movement
+  movePlayer(p,keys,dt);
+  if(S.p2&&NET.remoteInput){
+    movePlayer(S.p2,NET.remoteInput.keys,dt);
+    S.p2.ang=NET.remoteInput.ang||S.p2.ang;
+    S.remotePlayer=S.p2;
+  }
+
+  // Camera
+  const cv=document.getElementById('canvas');
+  S.cam.x=p.x-cv.width/2;S.cam.y=p.y-cv.height/2;
+
+  // Time
+  S.time+=dt*(86400/DAY_DUR);
+  if(S.time>=86400){S.time-=86400;S.day++;}
+
+  // Survival
+  p.inv=Math.max(0,p.inv-dt);
+  const night=isNight();
+  p.tmp=Math.max(0,p.tmp-(night?3.5:.4)*dt);
+  p.hun=Math.max(0,p.hun-1.4*dt);
+
+  const heat=S.objs.some(o=>(o.t===T.FIRE||o.t===T.TORCH)&&Math.hypot(o.x-p.x,o.y-p.y)<(o.t===T.FIRE?130:80));
+  if(heat)p.tmp=Math.min(100,p.tmp+12*dt);
+
+  if(p.inv<=0){
+    if(p.tmp<=0){p.hp-=7*dt;glog('Freezing!','danger');}
+    if(p.hun<=0){p.hp-=3*dt;glog('Starving…','warn');}
+  }
+
+  // Waves
+  S.stimer-=dt;
+  if(S.ghouls.length===0&&S.wleft===0&&S.stimer<=0){startWave(S.wave);S.stimer=20;}
+  if(S.wleft>0&&S.stimer<=0){
+    const types=['walker','runner','brute'];
+    const toSpawn=Math.min(3,S.wleft);
+    for(let i=0;i<toSpawn;i++){
+      const v=Math.random();
+      let tp='walker';
+      if(S.wave>=4&&v<.2)tp='brute';
+      else if(S.wave>=2&&v<.4)tp='runner';
+      spawnGhoul(tp);
+    }
+    S.wleft-=toSpawn;S.stimer=4;
+  }
+
+  // Ghoul AI
+  for(let i=S.ghouls.length-1;i>=0;i--){
+    const g=S.ghouls[i];
+    const target=alivePlayers().sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y))[0]||p;
+    const ddx=target.x-g.x,ddy=target.y-g.y,dist=Math.hypot(ddx,ddy);
+    if(dist>2){const s=g.spd*dt;g.x+=ddx/dist*s;g.y+=ddy/dist*s;}
+    g.acd=Math.max(0,g.acd-dt);
+    if(dist<28&&g.acd<=0&&target.inv<=0){
+      target.hp-=g.dmg;target.inv=.6;g.acd=1.5;
+      glog(`${g.em} hit you for ${g.dmg}!`,'danger');flash();
+    }
+    // Spikes
+    S.objs.forEach(o=>{if(o.t===T.SPIKE&&Math.hypot(o.x-g.x,o.y-g.y)<32)g.hp-=20*dt;});
+    if(g.hp<=0){
+      gainXP(GDEF[g.type].xp,g.lastHit==='p2'&&S.p2?S.p2:S.p);S.stats.kills++;dropLoot(g.x,g.y);
+      S.ghouls.splice(i,1);glog('Ghoul down!','good');
+    }
+  }
+
+  // Auto-pick loot
+  for(let i=S.loot.length-1;i>=0;i--){
+    const l=S.loot[i];
+    if(alivePlayers().some(pl=>Math.hypot(l.x-pl.x,l.y-pl.y)<32)){
+      const picker=alivePlayers().find(pl=>Math.hypot(l.x-pl.x,l.y-pl.y)<32);
+      if(!picker)continue;
+      const res=playerRes(picker);
+      if(l.n==='Food') res.food +=l.a;
+      if(l.n==='Wood') res.wood +=l.a;
+      if(l.n==='Metal')res.metal+=l.a;
+      if(picker===S.p)glog(`+${l.a} ${l.em}`,'good');
+      S.loot.splice(i,1);
+    }
+  }
+
+  // XP
+  alivePlayers().forEach(pl=>{
+    if(pl.xp>=pl.xpn){
+      pl.xp-=pl.xpn;pl.lvl++;pl.xpn=~~(pl.xpn*1.6);
+      pl.maxhp+=15;pl.hp=Math.min(pl.hp+25,pl.maxhp);
+      if(pl===S.p)glog(`🎉 Level ${pl.lvl}! Max HP +15`,'good');
+    }
+  });
+
+  p.hp=Math.min(p.hp,p.maxhp);
+  if(p.hp<=0){die();return;}
+  S.stats.surv+=dt;
+  updateHUD();updateClock();updateNight();
+  broadcastState(dt);
+}
+
+// ═══ WAVES ═══
+function startWave(w){
+  S.wave=w;S.wleft=3+w*2;S.stimer=1;
+  waveAlert(`⚠ WAVE ${w}`);glog(`Wave ${w} incoming!`,'danger');
+}
+function waveAlert(txt){
+  const el=document.getElementById('walert');
+  el.textContent=txt;el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',2500);
+}
+
+// ═══ LOOT ═══
+function dropLoot(x,y){
+  const v=Math.random();
+  if(v<.5)      S.loot.push({x,y,em:'🌿',n:'Food', a:1+~~(Math.random()*2)});
+  else if(v<.75)S.loot.push({x,y,em:'🪵',n:'Wood', a:2});
+  else if(v<.9) S.loot.push({x,y,em:'⚙️',n:'Metal',a:1});
+}
+
+// ═══ INTERACTION ═══
+function getTgt(player=S.p,aim=null){
+  const p=player,cv=document.getElementById('canvas'),r=cv.getBoundingClientRect();
+  const mx=aim?aim.x:mouse.x-r.left+S.cam.x,my=aim?aim.y:mouse.y-r.top+S.cam.y;
+  const tx=~~(mx/TILE),ty=~~(my/TILE);
+  if(tx<0||ty<0||tx>=MAP_W||ty>=MAP_H)return null;
+  const cx2=tx*TILE+TILE/2,cy2=ty*TILE+TILE/2;
+  if(Math.hypot(cx2-p.x,cy2-p.y)>GR)return null;
+  return{tx,ty,tile:S.map[ty][tx]};
+}
+
+function interact(player=S.p,aim=null){
+  if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'interact',aim:currentAim(),name:localName('GUEST')});return;}
+  const t=getTgt(player,aim);
+  if(!t||!t.tile||t.tile.r<=0){glog('Nothing here.');return;}
+  const {tile}=t;
+  const bag=playerBag(player),res=playerRes(player);
+  const hh=bag.some(i=>i.name==='Hatchet'),hp2=bag.some(i=>i.name==='Pickaxe');
+  let ok=false;
+  if(tile.t===T.TREE) {res.wood +=hh?3:1;if(player===S.p)glog(`+${hh?3:1} 🪵`,'good');ok=true;}
+  if(tile.t===T.ROCK) {res.stone+=hp2?3:1;if(player===S.p)glog(`+${hp2?3:1} 🪨`,'good');ok=true;}
+  if(tile.t===T.ORE)  {res.metal+=1;if(player===S.p)glog('+1 ⚙️','good');ok=true;}
+  if(tile.t===T.PLANT){res.food +=2;if(player===S.p)glog('+2 🌿','good');ok=true;}
+  if(ok){
+    tile.r--;gainXP(5,player);
+    if(tile.r<=0)tile.t=T.GRASS;
+    markTileDirty(t.tx,t.ty,tile);
+  }
+}
+
+function attack(player=S.p){
+  if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'attack',name:localName('GUEST')});return;}
+  const p=player,bag=playerBag(player),bow=bag.some(i=>i.name==='Bow');
+  const range=bow?220:65,dmg=bow?22:(bag.some(i=>i.name==='Hatchet')?18:10);
+  let best=null,bestD=range;
+  S.ghouls.forEach((g,i)=>{const d=Math.hypot(g.x-p.x,g.y-p.y);if(d<bestD){bestD=d;best=i;}});
+  if(best!==null){const g=S.ghouls[best];g.hp-=dmg;g.lastHit=player===S.p2?'p2':'p';gainXP(8,player);if(player===S.p)glog(`Hit ${g.em} for ${dmg}!`,'warn');}
+}
+
+function useItem(player=S.p){
+  if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'use',name:localName('GUEST')});return;}
+  const p=player,inv=playerBag(player),res=playerRes(player);
+  const bi=inv.findIndex(i=>i.name==='Bandage');
+  if(bi>=0){p.hp=Math.min(p.maxhp,p.hp+35);inv[bi].c--;if(!inv[bi].c)inv.splice(bi,1);if(player===S.p){glog('+35 ❤ Healed','good');updInv();updHotbar();}return;}
+  const si=inv.findIndex(i=>i.name==='Stew');
+  if(si>=0){p.hun=Math.min(100,p.hun+60);p.tmp=Math.min(100,p.tmp+20);inv[si].c--;if(!inv[si].c)inv.splice(si,1);if(player===S.p){glog('+60🍖 +20🌡 Stew!','good');updInv();updHotbar();}return;}
+  if(res.food>0){res.food--;p.hun=Math.min(100,p.hun+25);if(player===S.p)glog('+25 🍖 Eaten','good');}
+}
+
+// ═══ CRAFTING ═══
+const REC={
+  hatchet: {cost:{wood:5,stone:3},em:'🪓',name:'Hatchet'},
+  pickaxe: {cost:{wood:5,stone:8},em:'⛏',name:'Pickaxe'},
+  campfire:{cost:{wood:8},em:'🔥',name:'Campfire',place:T.FIRE},
+  torch:   {cost:{wood:3,food:1},em:'🕯',name:'Torch',place:T.TORCH},
+  wall:    {cost:{wood:10,stone:5},em:'🧱',name:'Wall',place:T.WALL},
+  spikes:  {cost:{stone:5,metal:3},em:'🪤',name:'Spikes',place:T.SPIKE},
+  bow:     {cost:{wood:8,food:3},em:'🏹',name:'Bow'},
+  bandage: {cost:{food:4},em:'🩹',name:'Bandage'},
+  stew:    {cost:{food:4,wood:2},em:'🍲',name:'Stew'},
+};
+
+function craft(id,player=S.p){
+  if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'craft',id,name:localName('GUEST')});return;}
+  const rec=REC[id],res=playerRes(player);
+  for(const[k,v]of Object.entries(rec.cost))if((res[k]||0)<v){if(player===S.p)glog('Not enough resources!','warn');return;}
+  for(const[k,v]of Object.entries(rec.cost))res[k]-=v;
+  if(rec.place!==undefined)placeObj(rec.place,rec.em,player);
+  else{addInv(rec.em,rec.name,player);if(player===S.p)updHotbar();}
+  gainXP(15,player);if(player===S.p)glog(`Crafted ${rec.em} ${rec.name}`,'good');
+  if(player===S.p){updCraft();updInv();}
+}
+
+function placeObj(type,em,player=S.p){
+  const p=player;
+  const tx=~~(p.x/TILE)+Math.round(Math.cos(p.ang));
+  const ty=~~(p.y/TILE)+Math.round(Math.sin(p.ang));
+  if(!S.objs.some(o=>~~(o.x/TILE)===tx&&~~(o.y/TILE)===ty))
+    S.objs.push({x:tx*TILE+TILE/2,y:ty*TILE+TILE/2,t:type,em});
+  glog(`Placed ${em}`,'good');
+}
+
+function addInv(em,name,player=S.p){
+  const inv=playerBag(player),ex=inv.find(i=>i.name===name);
+  if(ex)ex.c++;else inv.push({em,name,c:1});
+}
+
+// ═══ RENDER ═══
+function render(){
+  const cv=document.getElementById('canvas'),ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height,cam=S.cam,p=S.p,nf=nightFac();
+  ctx.clearRect(0,0,W,H);
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+
+  // Tiles
+  const tx0=Math.max(0,~~(cam.x/TILE)),ty0=Math.max(0,~~(cam.y/TILE));
+  const tx1=Math.min(MAP_W,tx0+~~(W/TILE)+2),ty1=Math.min(MAP_H,ty0+~~(H/TILE)+2);
+  for(let ty=ty0;ty<ty1;ty++)for(let tx=tx0;tx<tx1;tx++){
+    const tile=S.map[ty][tx];if(!tile)continue;
+    const sx=tx*TILE-cam.x,sy=ty*TILE-cam.y;
+    ctx.fillStyle=dimC(TCOL[tile.t]||'#111',nf);ctx.fillRect(sx,sy,TILE,TILE);
+    if(tile.t===T.WATER){ctx.fillStyle=nf>.5?'#07121a':'#0a2a40';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);}
+    if(tile.r>0){
+      const em={[T.TREE]:'🌲',[T.ROCK]:'🪨',[T.ORE]:'⚙️',[T.PLANT]:'🌿'}[tile.t];
+      if(em){ctx.font='22px serif';ctx.fillText(em,sx+9,sy+28);}
+    }
+  }
+
+  // Target highlight
+  const tgt=getTgt();
+  if(tgt&&tgt.tile&&tgt.tile.r>0){
+    const sx=tgt.tx*TILE-cam.x,sy=tgt.ty*TILE-cam.y;
+    ctx.strokeStyle='rgba(100,255,120,.75)';ctx.lineWidth=2;
+    ctx.strokeRect(sx+2,sy+2,TILE-4,TILE-4);
+    ctx.fillStyle='rgba(100,255,120,.07)';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);
+  }
+
+  // Objects
+  S.objs.forEach(o=>{
+    const sx=o.x-cam.x-TILE/2,sy=o.y-cam.y-TILE/2;
+    if(o.t===T.FIRE){
+      const g=ctx.createRadialGradient(sx+20,sy+20,4,sx+20,sy+20,70);
+      g.addColorStop(0,'rgba(255,110,0,.22)');g.addColorStop(1,'rgba(255,110,0,0)');
+      ctx.fillStyle=g;ctx.fillRect(sx-50,sy-50,TILE+100,TILE+100);
+      ctx.font='26px serif';ctx.fillText('🔥',sx+7,sy+30);
+    }
+    if(o.t===T.TORCH){
+      const g=ctx.createRadialGradient(sx+20,sy+20,2,sx+20,sy+20,42);
+      g.addColorStop(0,'rgba(255,160,0,.2)');g.addColorStop(1,'rgba(255,160,0,0)');
+      ctx.fillStyle=g;ctx.fillRect(sx-22,sy-22,TILE+44,TILE+44);
+      ctx.font='20px serif';ctx.fillText('🕯',sx+11,sy+28);
+    }
+    if(o.t===T.WALL){ctx.fillStyle='#3a3530';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);ctx.font='22px serif';ctx.fillText('🧱',sx+9,sy+28);}
+    if(o.t===T.SPIKE){ctx.font='22px serif';ctx.fillText('🪤',sx+9,sy+28);}
+  });
+
+  // Loot
+  S.loot.forEach(l=>{
+    const sx=l.x-cam.x,sy=l.y-cam.y;
+    if(sx<-20||sx>W+20||sy<-20||sy>H+20)return;
+    ctx.strokeStyle='rgba(255,220,80,.4)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(sx,sy,10+Math.sin(Date.now()*.005)*3,0,Math.PI*2);ctx.stroke();
+    ctx.font='16px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(l.em,sx,sy);ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  });
+
+  // Ghouls
+  S.ghouls.forEach(g=>{
+    const sx=g.x-cam.x,sy=g.y-cam.y;
+    if(sx<-40||sx>W+40||sy<-40||sy>H+40)return;
+    ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(sx,sy+16,10,4,0,0,Math.PI*2);ctx.fill();
+    ctx.font='24px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(g.em,sx,sy);ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    const bw=30;
+    ctx.fillStyle='#300';ctx.fillRect(sx-bw/2,sy-20,bw,4);
+    ctx.fillStyle='#e33';ctx.fillRect(sx-bw/2,sy-20,bw*(g.hp/g.mhp),4);
+  });
+
+  // Player
+  const psx=p.x-cam.x,psy=p.y-cam.y;
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(psx,psy+12,10,4,0,0,Math.PI*2);ctx.fill();
+  ctx.save();
+  if(p.inv>0)ctx.globalAlpha=Math.sin(Date.now()*.06)>0?.35:1;
+  ctx.font='26px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('🧍',psx,psy);ctx.restore();
+  ctx.font='10px monospace';ctx.fillStyle='#4ade80';
+  ctx.fillText(p.name||'YOU',psx,psy-24);
+  ctx.strokeStyle='rgba(100,200,100,.1)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(psx,psy,GR,0,Math.PI*2);ctx.stroke();
+  if(S.remotePlayer){
+    const rp=S.remotePlayer,rsx=rp.x-cam.x,rsy=rp.y-cam.y;
+    ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(rsx,rsy+12,10,4,0,0,Math.PI*2);ctx.fill();
+    ctx.font='26px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('P2',rsx,rsy);
+    ctx.font='10px monospace';ctx.fillStyle='#60a5fa';
+    ctx.fillText(rp.name||'FRIEND',rsx,rsy-24);
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  }
+
+  renderMM();
+}
+
+function renderMM(){
+  const mc=document.getElementById('minimap');
+  if(mc.style.display==='none')return;
+  const ctx=mc.getContext('2d'),W=mc.width,H=mc.height;
+  ctx.clearRect(0,0,W,H);ctx.fillStyle='#0a0c08';ctx.fillRect(0,0,W,H);
+  const sx=W/MAP_W,sy=H/MAP_H;
+  const MC={[T.GRASS]:'#1a2e10',[T.TREE]:'#0d2808',[T.ROCK]:'#2a2520',[T.WATER]:'#0a1a2a',[T.SAND]:'#2a2010',[T.ORE]:'#1e1428',[T.PLANT]:'#1e3010'};
+  for(let y=0;y<MAP_H;y++)for(let x=0;x<MAP_W;x++){
+    ctx.fillStyle=MC[S.map[y][x].t]||'#111';ctx.fillRect(x*sx,y*sy,sx,sy);
+  }
+  ctx.fillStyle='#ef4444';
+  S.ghouls.forEach(g=>ctx.fillRect((g.x/TILE)*sx-1,(g.y/TILE)*sy-1,3,3));
+  ctx.fillStyle='#4ade80';ctx.beginPath();
+  ctx.arc((S.p.x/TILE)*sx,(S.p.y/TILE)*sy,3,0,Math.PI*2);ctx.fill();
+  if(S.remotePlayer){
+    ctx.fillStyle='#60a5fa';ctx.beginPath();
+    ctx.arc((S.remotePlayer.x/TILE)*sx,(S.remotePlayer.y/TILE)*sy,3,0,Math.PI*2);ctx.fill();
+  }
+}
+
+// ═══ TIME ═══
+function isNight(){const h=S.time/3600;return h<6||h>=20;}
+function nightFac(){
+  const h=S.time/3600;
+  if(h>=8&&h<18)return 0;if(h>=18&&h<20)return(h-18)/2;
+  if(h>=20||h<4)return 1;if(h>=4&&h<6)return 1-(h-4)/2;return 0;
+}
+function updateNight(){document.getElementById('nover').style.opacity=nightFac()*.65;}
+function dimC(hex,f){
+  if(!f)return hex;
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  const k=1-f*.72,h=n=>Math.max(0,~~(n*k)).toString(16).padStart(2,'0');
+  return`#${h(r)}${h(g)}${h(b)}`;
+}
+
+// ═══ HUD ═══
+function updateClock(){
+  const h=~~(S.time/3600)%24,m=~~((S.time%3600)/60);
+  const str=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  let phase='☀ MORNING';
+  if(h>=12&&h<18)phase='🌤 AFTERNOON';else if(h>=18&&h<20)phase='🌅 DUSK';else if(h>=20||h<6)phase='🌙 NIGHT';
+  const $=id=>document.getElementById(id);
+  if($('htime'))$('htime').textContent=str;
+  if($('hday')) $('hday').textContent=`DAY ${S.day}`;
+  if($('hphase'))$('hphase').textContent=phase;
+}
+
+function updateHUD(){
+  const p=S.p,res=playerRes(p);
+  const sb=(id,v,mx)=>{const el=document.getElementById(id);if(el)el.style.width=`${Math.max(0,Math.min(100,v/mx*100))}%`;};
+  const st=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  sb('bhp',p.hp,p.maxhp);sb('bhu',p.hun,100);sb('btm',p.tmp,100);
+  sb('bxp',p.xp,p.xpn);sb('bxp2',p.xp,p.xpn);
+  st('vhp',~~p.hp);st('vhu',~~p.hun);st('vtm',~~p.tmp);
+  st('vlvl',p.lvl);st('vlvl2',p.lvl);
+  st('hghouls',S.ghouls.length);st('hwave',S.wave);
+  st('rwood',res.wood);st('rstone',res.stone);st('rfood',res.food);st('rmetal',res.metal);
+  updCraft();
+}
+
+function updCraft(){
+  const res=playerRes(S.p);
+  for(const[id,rec]of Object.entries(REC)){
+    const btn=document.getElementById(`craft-${id}`);
+    if(!btn)continue;
+    btn.disabled=!Object.entries(rec.cost).every(([k,v])=>(res[k]||0)>=v);
+  }
+}
+
+function updHotbar(){
+  const p=S.p,hotbar=['✊','','',''];
+  playerBag(p).forEach((item,i)=>{if(i<3)hotbar[i+1]=item.em;});
+  p.hotbar=hotbar;
+  for(let i=0;i<4;i++){
+    const sl=document.getElementById(`h${i}`);
+    const num=sl.querySelector('.hn').outerHTML;
+    sl.innerHTML=num+(hotbar[i]||'');
+    sl.className='hs'+(p.hsel===i?' active':'');
+  }
+}
+
+function updInv(){
+  const grid=document.getElementById('igrid');grid.innerHTML='';
+  for(let i=0;i<12;i++){
+    const item=playerBag(S.p)[i],sl=document.createElement('div');sl.className='is';
+    if(item){sl.innerHTML=`${item.em}<span class="ic">${item.c>1?item.c:''}</span>`;sl.title=item.name;}
+    grid.appendChild(sl);
+  }
+}
+
+// ═══ MISC ═══
+function gainXP(n,player=S.p){player.xp+=n;}
+function flash(){const el=document.getElementById('dflash');el.style.opacity='1';setTimeout(()=>el.style.opacity='0',120);}
+function glog(msg,type){
+  const el=document.getElementById('log'),e=document.createElement('div');
+  e.className='le'+(type?' '+type:'');e.textContent='> '+msg;el.appendChild(e);
+  setTimeout(()=>e.remove(),4000);
+  while(el.children.length>7)el.removeChild(el.firstChild);
+}
+function die(){
+  running=false;
+  const m=~~(S.stats.surv/60),s=~~(S.stats.surv%60);
+  document.getElementById('dstats').innerHTML=`Survived ${m}m ${s}s | Day ${S.day} | Wave ${S.wave}<br>Ghouls killed: ${S.stats.kills}`;
+  document.getElementById('dscr').style.display='flex';
+}
+function respawn(){document.getElementById('dscr').style.display='none';initAndStart();}
+
+// ═══ PANELS ═══
+const PSTATE={craft:false,inv:false,res:false};
+function togglePanel(n){PSTATE[n]=!PSTATE[n];syncPanels();}
+function closePanel(n){PSTATE[n]=false;syncPanels();}
+function syncPanels(){
+  const map={craft:'fp-craft',inv:'fp-inv',res:'fp-res'};
+  const bm={craft:'pb-craft',inv:'pb-inv',res:'pb-res'};
+  for(const[n,eid]of Object.entries(map)){
+    document.getElementById(eid)?.classList.toggle('open',PSTATE[n]);
+    document.getElementById(bm[n])?.classList.toggle('on',PSTATE[n]);
+  }
+}
+
+// ═══ INPUT ═══
+document.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();keys[k]=true;
+  if(!running)return;
+  if(k==='e')interact();
+  if(k==='f')useItem();
+  if(k===' '){e.preventDefault();attack();}
+  if(k==='c')togglePanel('craft');
+  if(k==='i')togglePanel('inv');
+  if(k==='r')togglePanel('res');
+  if(k==='m'){const mc=document.getElementById('minimap');mc.style.display=mc.style.display==='none'?'block':'none';}
+  if('1234'.includes(k)&&k>='1'&&k<='4'){
+    const i=+k-1;S.p.hsel=i;
+    document.querySelectorAll('.hs').forEach((s,j)=>s.classList.toggle('active',j===i));
+  }
+});
+document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+document.getElementById('canvas').addEventListener('click',()=>{if(running)attack();});
+document.addEventListener('mousemove',e=>{
+  mouse={x:e.clientX,y:e.clientY};
+  if(!S.p||!running)return;
+  const cv=document.getElementById('canvas'),r=cv.getBoundingClientRect();
+  S.p.ang=Math.atan2(e.clientY-r.top-(S.p.y-S.cam.y),e.clientX-r.left-(S.p.x-S.cam.x));
+});
+document.getElementById('nickname')?.addEventListener('input',sendHello);
+
+function resizeCanvases(){
+  const cv=document.getElementById('canvas');
+  cv.width=cv.offsetWidth;cv.height=cv.offsetHeight;
+  const mc=document.getElementById('minimap');
+  mc.width=110;mc.height=110;
+}
+
+window.addEventListener('resize',resizeCanvases);
+
+// ═══ START ═══
+function showGameUi(){
+  document.getElementById('splash').style.display='none';
+  document.getElementById('hud').style.display='flex';
+  document.getElementById('hotbar').style.display='flex';
+  document.getElementById('pbtns').style.display='flex';
+}
+
+function initAndStart(){
+  NET.mapSent=false;NET.tileDirty=[];
+  S=mkState();S.map=genMap();
+  S.p.name=localName('HOST');
+  const sp=findSpawn();S.p.x=sp.x;S.p.y=sp.y;
+  if(NET.mode==='host'&&NET.connected)S.p2=clonePlayer(S.p,NET.guestName);
+  if(S.p2){const sp2=findSafeNear(S.p.x,S.p.y);S.p2.x=sp2.x;S.p2.y=sp2.y;S.remotePlayer=S.p2;}
+  resizeCanvases();
+  const mc=document.getElementById('minimap');mc.style.display='block';
+  startWave(1);
+  updInv();updHotbar();updCraft();
+  startLoop();
+  glog('Welcome to Wasteland. Survive.','good');
+  glog('E=gather  SPACE=attack  F=use item','');
+  glog('C=craft  I=inventory  R=resources','');
+}
+
+function startGame(){
+  if(NET.mode==='guest'){setNetStatus('Guest starts when the host presses SURVIVE.');return;}
+  showGameUi();
+  initAndStart();
+}
+</script>
+</body>
+</html>
