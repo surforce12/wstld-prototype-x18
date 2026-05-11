@@ -129,6 +129,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <button class="pbtn" id="pb-craft" onclick="togglePanel('craft')"><span class="pk">[C]</span>🔨 Craft</button>
   <button class="pbtn" id="pb-inv"   onclick="togglePanel('inv')">  <span class="pk">[I]</span>🎒 Items</button>
   <button class="pbtn" id="pb-res"   onclick="togglePanel('res')">  <span class="pk">[R]</span>📦 Res</button>
+  <button class="pbtn" id="pb-skills" onclick="togglePanel('skills')"></button><span class="pk">[K]</span>⚡ Skills</button>
 </div>
 
 <!-- Hotbar -->
@@ -137,6 +138,10 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <div class="hs" id="h1"><span class="hn">2</span></div>
   <div class="hs" id="h2"><span class="hn">3</span></div>
   <div class="hs" id="h3"><span class="hn">4</span></div>
+  <div class="hs" id="h4"><span class="hn">5</span></div>
+  <div class="hs" id="h5"><span class="hn">6</span></div>
+  <div class="hs" id="h6"><span class="hn">7</span></div>
+  <div class="hs" id="h7"><span class="hn">8</span></div>
 </div>
 
 <!-- CRAFT panel — left middle -->
@@ -151,6 +156,15 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <button class="cbtn" id="craft-bow"      onclick="craft('bow')">     🏹 Bow      <span class="cc">8🪵 3🌿</span></button>
   <button class="cbtn" id="craft-bandage"  onclick="craft('bandage')"> 🩹 Bandage  <span class="cc">4🌿</span></button>
   <button class="cbtn" id="craft-stew"     onclick="craft('stew')">    🍲 Stew     <span class="cc">4🌿 2🪵</span></button>
+  <button class="cbtn" id="craft-sword"    onclick="craft('sword')">   ⚔️ Sword    <span class="cc">5🪵 8⚙️</span></button>
+  <button class="cbtn" id="craft-shield"   onclick="craft('shield')">  🛡️ Shield   <span class="cc">8🪵 6⚙️</span></button>
+  <button class="cbtn" id="craft-armor"    onclick="craft('armor')">   🦺 Armor    <span class="cc">12⚙️ 4🪨</span></button>
+  <button class="cbtn" id="craft-medkit"   onclick="craft('medkit')">  🏥 Medkit   <span class="cc">6🌿 2⚙️</span></button>
+  <button class="cbtn" id="craft-crossbow" onclick="craft('crossbow')">🏹 Crossbow <span class="cc">10🪵 5⚙️</span></button>
+  <button class="cbtn" id="craft-furnace"  onclick="craft('furnace')"> 🔥 Furnace  <span class="cc">15🪨 8⚙️</span></button>
+  <button class="cbtn" id="craft-trap"     onclick="craft('trap')">    🪤 Trap     <span class="cc">6🪵 4⚙️</span></button>
+  <button class="cbtn" id="craft-lantern"  onclick="craft('lantern')"> 🏮 Lantern  <span class="cc">5⚙️ 3🪵</span></button>
+  <button class="cbtn" id="craft-backpack" onclick="craft('backpack')"> 🎒 Backpack <span class="cc">15🪵 10🪨 5🌿</span></button>
 </div>
 
 <!-- INVENTORY panel — right middle -->
@@ -176,6 +190,43 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   </div>
 </div>
 
+<!-- SKILLS panel -- left bottom -->
+<div class="fp" id="fp-skills" style="left:12px;bottom:72px;">
+  <div class="fpt">⚡ Skills <span class="fpc" onclick="closePanel('skills')">✕</span></div>
+  <div style="font-size:11px;color:var(--yellow);margin-bottom:8px;">Skill Points: <span id="skillpoints">0</span></div>
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    <button class="cbtn" onclick="upgradeSkill('health')">
+      ❤ Health <span class="cc">+10 HP</span>
+    </button>
+    <button class="cbtn" onclick="upgradeSkill('speed')">
+      💨 Speed <span class="cc">+15 SPD</span>
+    </button>
+    <button class="cbtn" onclick="upgradeSkill('strength')">
+      💪 Strength <span class="cc">+DMG</span>
+    </button>
+    <button class="cbtn" onclick="upgradeSkill('crafting')">
+      🔨 Crafting <span class="cc">Better</span>
+    </button>
+    <button class="cbtn" onclick="upgradeSkill('gathering')">
+      🌿 Gathering <span class="cc">+RES</span>
+    </button>
+  </div>
+  <div style="margin-top:8px;font-size:10px;color:var(--dim);border-top:1px solid var(--border);padding-top:4px;">
+    <div>Perks:</div>
+    <button class="cbtn" onclick="unlockPerk('regen')" style="font-size:9px;">🩸 Regen (3)</button>
+    <button class="cbtn" onclick="unlockPerk('nightvision')" style="font-size:9px;">👁 Night Vision (2)</button>
+    <button class="cbtn" onclick="unlockPerk('lucky')" style="font-size:9px;">🍀 Lucky (4)</button>
+  </div>
+</div>
+
+<!-- TRADING panel -->
+<div class="fp" id="fp-trade" style="left:50%;top:50%;transform:translate(-50%,-50%);min-width:300px;">
+  <div class="fpt">🤠 Trading <span class="fpc" onclick="closeTrade()">✕</span></div>
+  <div id="trader-info" style="font-size:11px;color:var(--yellow);margin-bottom:8px;"></div>
+  <div style="font-size:10px;color:var(--dim);margin-bottom:8px;">Your coins: <span id="player-coins">0</span></div>
+  <div id="trade-items" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:200px;overflow-y:auto;"></div>
+</div>
+
 <div id="log"></div>
 <div id="walert"></div>
 
@@ -193,6 +244,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
     <div><span>SPACE/Click</span> — attack</div><div><span>F</span> — use item</div>
     <div><span>C</span> — crafting</div><div><span>I</span> — inventory</div>
     <div><span>R</span> — resources</div><div><span>M</span> — minimap</div>
+    <div><span>T</span> — trade (near NPC)</div>
   </div>
   <button id="sbtn" onclick="startGame()">▶ SURVIVE</button>
 </div>
@@ -202,8 +254,15 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 // ═══ CONSTANTS ═══
 const TILE=40,MAP_W=64,MAP_H=64,DAY_DUR=240,PR=8,GR=TILE*1.5;
 const T={GRASS:0,TREE:1,ROCK:2,WATER:3,SAND:4,ORE:5,PLANT:6,FIRE:7,WALL:8,SPIKE:9,TORCH:10};
+const WEATHER={CLEAR:0,RAIN:1,SNOW:2,FOG:3,STORM:4};
 const SOLID=new Set([T.WATER,T.TREE,T.ROCK,T.ORE]);
 const TCOL={0:'#1a2e10',1:'#0d2008',2:'#2a2520',3:'#0a1a2a',4:'#2a2010',5:'#1a1520',6:'#162a08',7:'#3a2000',8:'#2a2520',9:'#221a10',10:'#1a1800'};
+
+// Resource stacking limits
+const STACK_SIZES={
+  wood:20, stone:40, food:20, metal:10,
+  gem:5, 'rare-wood':10, 'rare-stone':20
+};
 
 // ═══ STATE ═══
 let S={},keys={},mouse={x:0,y:0},running=false,last=0;
@@ -260,17 +319,75 @@ function sendHello(){
 function playerLoadout(){
   return{
     res:{wood:0,stone:0,food:0,metal:0},
-    bag:[],hotbar:['✊','','',''],hsel:0
+    bag:[],hotbar:['✊','','','','','','','','',''],hsel:0,
+    invSize:12 // Base inventory size, can be increased with backpack
   };
 }
 
 function makePlayer(name){
-  return{x:0,y:0,hp:100,maxhp:100,hun:100,tmp:80,xp:0,xpn:100,lvl:1,spd:130,ang:0,inv:0,name,...playerLoadout()};
+  return{
+    x:0,y:0,hp:100,maxhp:100,hun:100,tmp:80,xp:0,xpn:100,lvl:1,spd:130,ang:0,inv:0,name,
+    ...playerLoadout(),
+    skills:{
+      health:0,speed:0,strength:0,crafting:0,gathering:0,
+      perks:[]
+    },
+    skillPoints:0
+  };
 }
 
 function playerRes(player=S.p){return player.res||(player.res={wood:0,stone:0,food:0,metal:0});}
 function playerBag(player=S.p){return player.bag||(player.bag=[]);}
-function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊','','','']);}
+function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊','','','','','','','','','']);}
+
+// Add resources with stacking
+function addResource(player, resourceType, amount){
+  const res=playerRes(player);
+  const stackSize=STACK_SIZES[resourceType]||STACK_SIZES.wood;
+  const current=res[resourceType]||0;
+  const canAdd=Math.min(amount, stackSize - (current % stackSize));
+  res[resourceType]=current + canAdd;
+  return canAdd === amount; // Returns true if all resources added
+}
+
+// Drop resources on ground
+function dropResources(player, resourceType, amount){
+  const res=playerRes(player);
+  const available=Math.min(amount, res[resourceType]||0);
+  if(available<=0)return false;
+  
+  res[resourceType]-=available;
+  
+  // Create loot pile on ground
+  const icons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️',gem:'💎'};
+  S.loot.push({
+    x:player.x,
+    y:player.y,
+    em:icons[resourceType]||'📦',
+    n:resourceType.charAt(0).toUpperCase()+resourceType.slice(1),
+    a:available,
+    isResource:true
+  });
+  
+  glog(`Dropped ${available} ${icons[resourceType]} ${resourceType}`,'');
+  return true;
+}
+
+// Pick up resources from ground
+function pickupResources(player, loot){
+  if(!loot.isResource)return false;
+  
+  const res=playerRes(player);
+  const added=addResource(player, loot.n.toLowerCase(), loot.a);
+  
+  if(added){
+    glog(`+${loot.a} ${loot.em} ${loot.n}`,'good');
+    return true;
+  } else {
+    glog(`Inventory full for ${loot.n}!`,'warn');
+    return false;
+  }
+}
 
 function mkState(){
   return{
@@ -279,11 +396,185 @@ function mkState(){
     time:6*3600,day:1,wave:1,wleft:0,
     map:[],ghouls:[],loot:[],objs:[],
     cam:{x:0,y:0},stats:{surv:0,kills:0},stimer:0,
+    weather:WEATHER.CLEAR,weatherIntensity:0,weatherTimer:0,weatherParticles:[],
+    npcs:[],traderOpen:false
   };
 }
 
 function clonePlayer(p,name){
   return {...p,...playerLoadout(),hp:p.maxhp,hun:100,tmp:80,xp:0,xpn:100,lvl:1,inv:0,name};
+}
+
+// NPC System
+const NPC_TYPES={
+  trader:{name:'Merchant',em:'🤠',dialog:'Trading goods for survival!'},
+  healer:{name:'Medic',em:'👩‍⚕️',dialog:'Need medical supplies?'},
+  blacksmith:{name:'Blacksmith',em:'👨‍🔧',dialog:'Quality tools and weapons!'}
+};
+
+const SHOP_ITEMS={
+  trader:[
+    {name:'Food',em:'🌿',buy:2,sell:1,type:'resource'},
+    {name:'Wood',em:'🪵',buy:3,sell:1,type:'resource'},
+    {name:'Stone',em:'🪨',buy:4,sell:2,type:'resource'},
+    {name:'Metal',em:'⚙️',buy:8,sell:4,type:'resource'},
+    {name:'Bandage',em:'🩹',buy:15,sell:8,type:'item'},
+    {name:'Torch',em:'🕯',buy:10,sell:5,type:'item'}
+  ],
+  healer:[
+    {name:'Bandage',em:'🩹',buy:12,sell:6,type:'item'},
+    {name:'Medkit',em:'🏥',buy:25,sell:12,type:'item'},
+    {name:'Antidote',em:'💉',buy:20,sell:10,type:'item'}
+  ],
+  blacksmith:[
+    {name:'Sword',em:'⚔️',buy:50,sell:25,type:'weapon'},
+    {name:'Shield',em:'🛡️',buy:40,sell:20,type:'weapon'},
+    {name:'Armor',em:'🦺',buy:60,sell:30,type:'weapon'}
+  ]
+};
+
+function spawnNPC(type,x,y){
+  const npcType=NPC_TYPES[type];
+  if(!npcType)return;
+  
+  S.npcs.push({
+    x,y,type,name:npcType.name,em:npcType.em,
+    dialog:npcType.dialog,inventory:[],coins:100
+  });
+}
+
+function initNPCs(){
+  // Spawn some NPCs on map
+  const sp=findSpawn();
+  spawnNPC('trader',sp.x+200,sp.y);
+  spawnNPC('healer',sp.x-200,sp.y);
+  spawnNPC('blacksmith',sp.x,sp.y+200);
+}
+
+function openNearbyTrade(){
+  const p=S.p;
+  let nearbyNPC=null;
+  for(const npc of S.npcs){
+    if(Math.hypot(npc.x-p.x,npc.y-p.y)<60){
+      nearbyNPC=npc;
+      break;
+    }
+  }
+  if(!nearbyNPC){
+    glog('No NPC nearby!','warn');
+    return;
+  }
+  openTrade(nearbyNPC);
+}
+
+function openTrade(npc){
+  S.traderOpen=npc;
+  const panel=document.getElementById('fp-trade');
+  const info=document.getElementById('trader-info');
+  const items=document.getElementById('trade-items');
+  
+  info.textContent=`${npc.em} ${npc.name}: ${npc.dialog}`;
+  items.innerHTML='';
+  
+  const shopItems=SHOP_ITEMS[npc.type]||[];
+  shopItems.forEach((item,i)=>{
+    const div=document.createElement('div');
+    div.style.cssText='display:flex;align-items:center;gap:4px;padding:4px;border:1px solid var(--border);border-radius:2px;';
+    div.innerHTML=`
+      <span style="font-size:16px;">${item.em}</span>
+      <span style="flex:1;font-size:10px;">${item.name}</span>
+      <button onclick="buyItem(${i})" style="font-size:9px;padding:2px 4px;">Buy ${item.buy}🪙</button>
+      <button onclick="sellItem('${item.name}')" style="font-size:9px;padding:2px 4px;">Sell ${item.sell}🪙</button>
+    `;
+    items.appendChild(div);
+  });
+  
+  panel.classList.add('open');
+  updateTradeUI();
+}
+
+function closeTrade(){
+  document.getElementById('fp-trade').classList.remove('open');
+  S.traderOpen=null;
+}
+
+function updateTradeUI(){
+  const p=S.p;
+  if(!p.coins)p.coins=0;
+  document.getElementById('player-coins').textContent=p.coins;
+}
+
+function buyItem(index){
+  const npc=S.traderOpen;
+  if(!npc)return;
+  
+  const item=SHOP_ITEMS[npc.type][index];
+  if(!item)return;
+  
+  const p=S.p;
+  if(!p.coins)p.coins=0;
+  
+  if(p.coins<item.buy){
+    glog('Not enough coins!','warn');
+    return;
+  }
+  
+  p.coins-=item.buy;
+  
+  if(item.type==='resource'){
+    const res=playerRes(p);
+    res[item.name.toLowerCase()]+=1;
+  }else{
+    addInv(item.em,item.name,p);
+  }
+  
+  glog(`Bought ${item.name} for ${item.buy} coins`,'good');
+  updateTradeUI();
+  updateHUD();
+}
+
+function sellItem(itemName){
+  const p=S.p;
+  if(!p.coins)p.coins=0;
+  
+  let sold=false;
+  
+  // Try to sell from inventory
+  const inv=playerBag(p);
+  const itemIndex=inv.findIndex(i=>i.name===itemName);
+  if(itemIndex>=0){
+    const item=inv[itemIndex];
+    const shopItem=Object.values(SHOP_ITEMS).flat().find(i=>i.name===itemName);
+    if(shopItem){
+      p.coins+=shopItem.sell;
+      item.c--;
+      if(item.c<=0)inv.splice(itemIndex,1);
+      sold=true;
+      glog(`Sold ${itemName} for ${shopItem.sell} coins`,'good');
+    }
+  }
+  
+  // Try to sell from resources
+  if(!sold){
+    const res=playerRes(p);
+    const resName=itemName.toLowerCase();
+    if(res[resName]>0){
+      const shopItem=Object.values(SHOP_ITEMS).flat().find(i=>i.name===itemName);
+      if(shopItem){
+        res[resName]--;
+        p.coins+=shopItem.sell;
+        sold=true;
+        glog(`Sold ${itemName} for ${shopItem.sell} coins`,'good');
+      }
+    }
+  }
+  
+  if(!sold){
+    glog(`No ${itemName} to sell!`,'warn');
+  }
+  
+  updateTradeUI();
+  updateHUD();
 }
 
 function hasPeer(){
@@ -532,14 +823,46 @@ function findSafeNear(x,y){
 }
 
 // ═══ GHOULS ═══
-const GDEF={walker:{hp:50,spd:45,dmg:12,em:'👻',xp:25},runner:{hp:30,spd:95,dmg:8,em:'💨',xp:20},brute:{hp:120,spd:28,dmg:25,em:'👾',xp:50}};
+const GDEF={
+  walker:{hp:50,spd:45,dmg:12,em:'👻',xp:25},
+  runner:{hp:30,spd:95,dmg:8,em:'💨',xp:20},
+  brute:{hp:120,spd:28,dmg:25,em:'👾',xp:50},
+  spitter:{hp:40,spd:35,dmg:15,em:'🤢',xp:35,range:150,projectile:true},
+  crawler:{hp:25,spd:60,dmg:10,em:'🐛',xp:30,small:true},
+  tank:{hp:200,spd:15,dmg:35,em:'🛡',xp:80,armor:0.5}
+};
+
+// Boss definitions
+const BDEF={
+  necromancer:{hp:500,spd:20,dmg:30,em:'🧙',xp:200,abilities:['summon','curse']},
+  beast:{hp:800,spd:40,dmg:45,em:'🐲',xp:300,abilities:['leap','roar']},
+  plague:{hp:600,spd:25,dmg:25,em:'☣',xp:250,abilities:['poison','spawn']}
+};
 
 function spawnGhoul(type){
   const d=GDEF[type]||GDEF.walker;
   const p=S.p;let gx,gy,tr=0;
   do{gx=(2+~~(Math.random()*(MAP_W-4)))*TILE;gy=(2+~~(Math.random()*(MAP_H-4)))*TILE;tr++;}
   while(Math.hypot(gx-p.x,gy-p.y)<450&&tr<50);
-  S.ghouls.push({x:gx,y:gy,hp:d.hp,mhp:d.hp,spd:d.spd,dmg:d.dmg,em:d.em,type,acd:0});
+  const ghoul={x:gx,y:gy,hp:d.hp,mhp:d.hp,spd:d.spd,dmg:d.dmg,em:d.em,type,acd:0};
+  if(d.projectile)ghoul.projectileTimer=0;
+  if(d.armor)ghoul.armor=d.armor;
+  if(d.small)ghoul.small=true;
+  S.ghouls.push(ghoul);
+}
+
+function spawnBoss(type){
+  const d=BDEF[type]||BDEF.necromancer;
+  const p=S.p;let gx,gy,tr=0;
+  do{gx=(2+~~(Math.random()*(MAP_W-4)))*TILE;gy=(2+~~(Math.random()*(MAP_H-4)))*TILE;tr++;}
+  while(Math.hypot(gx-p.x,gy-p.y)<600&&tr<50);
+  const boss={
+    x:gx,y:gy,hp:d.hp,mhp:d.hp,spd:d.spd,dmg:d.dmg,em:d.em,type,acd:0,
+    isBoss:true,abilityTimer:0,abilities:d.abilities||[]
+  };
+  S.ghouls.push(boss);
+  waveAlert(`⚠ BOSS ${type.toUpperCase()} SPAWNED!`);
+  glog(`Boss ${type} appeared!`,'danger');
 }
 
 // ═══ GAME LOOP ═══
@@ -625,12 +948,27 @@ function update(dt){
   // Time
   S.time+=dt*(86400/DAY_DUR);
   if(S.time>=86400){S.time-=86400;S.day++;}
+  
+  // Weather system
+  updateWeather(dt);
+  
+  // Update projectiles
+  updateProjectiles(dt);
 
   // Survival
   p.inv=Math.max(0,p.inv-dt);
   const night=isNight();
-  p.tmp=Math.max(0,p.tmp-(night?3.5:.4)*dt);
+  
+  // Apply night vision perk
+  let nightFactor=night?3.5:.4;
+  if(p.skills.perks.includes('nightvision')) nightFactor*=0.5;
+  p.tmp=Math.max(0,p.tmp-nightFactor*dt);
   p.hun=Math.max(0,p.hun-1.4*dt);
+  
+  // Apply regeneration perk
+  if(p.skills.perks.includes('regen')&&p.hp<p.maxhp){
+    p.hp=Math.min(p.maxhp,p.hp+2*dt);
+  }
 
   const heat=S.objs.some(o=>(o.t===T.FIRE||o.t===T.TORCH)&&Math.hypot(o.x-p.x,o.y-p.y)<(o.t===T.FIRE?130:80));
   if(heat)p.tmp=Math.min(100,p.tmp+12*dt);
@@ -644,13 +982,15 @@ function update(dt){
   S.stimer-=dt;
   if(S.ghouls.length===0&&S.wleft===0&&S.stimer<=0){startWave(S.wave);S.stimer=20;}
   if(S.wleft>0&&S.stimer<=0){
-    const types=['walker','runner','brute'];
     const toSpawn=Math.min(3,S.wleft);
     for(let i=0;i<toSpawn;i++){
       const v=Math.random();
       let tp='walker';
-      if(S.wave>=4&&v<.2)tp='brute';
-      else if(S.wave>=2&&v<.4)tp='runner';
+      if(S.wave>=8&&v<.15)tp='tank';
+      else if(S.wave>=6&&v<.25)tp='spitter';
+      else if(S.wave>=4&&v<.35)tp='crawler';
+      else if(S.wave>=4&&v<.2)tp='brute';
+      else if(S.wave>=2&&v<.5)tp='runner';
       spawnGhoul(tp);
     }
     S.wleft-=toSpawn;S.stimer=4;
@@ -661,17 +1001,54 @@ function update(dt){
     const g=S.ghouls[i];
     const target=alivePlayers().sort((a,b)=>Math.hypot(a.x-g.x,a.y-g.y)-Math.hypot(b.x-g.x,b.y-g.y))[0]||p;
     const ddx=target.x-g.x,ddy=target.y-g.y,dist=Math.hypot(ddx,ddy);
+    
+    // Special abilities for bosses
+    if(g.isBoss){
+      g.abilityTimer-=dt;
+      if(g.abilityTimer<=0){
+        g.abilityTimer=8+Math.random()*4;
+        const ability=g.abilities[Math.floor(Math.random()*g.abilities.length)];
+        executeBossAbility(g,ability,target);
+      }
+    }
+    
+    // Spitter projectile attack
+    if(g.type==='spitter'){
+      g.projectileTimer=Math.max(0,g.projectileTimer-dt);
+      if(g.projectileTimer<=0&&dist<200){
+        g.projectileTimer=3;
+        createProjectile(g.x,g.y,target.x,target.y,g.dmg);
+      }
+    }
+    
+    // Movement
     if(dist>2){const s=g.spd*dt;g.x+=ddx/dist*s;g.y+=ddy/dist*s;}
     g.acd=Math.max(0,g.acd-dt);
-    if(dist<28&&g.acd<=0&&target.inv<=0){
-      target.hp-=g.dmg;target.inv=.6;g.acd=1.5;
-      glog(`${g.em} hit you for ${g.dmg}!`,'danger');flash();
+    
+    // Attack
+    const attackRange=g.small?20:28;
+    if(dist<attackRange&&g.acd<=0&&target.inv<=0){
+      let damage=g.dmg;
+      if(g.armor)damage*=0.5; // Tank deals less damage but has armor
+      target.hp-=damage;target.inv=.6;g.acd=1.5;
+      glog(`${g.em} hit you for ${damage}!`,'danger');flash();
     }
-    // Spikes
+    
+    // Spikes damage
     S.objs.forEach(o=>{if(o.t===T.SPIKE&&Math.hypot(o.x-g.x,o.y-g.y)<32)g.hp-=20*dt;});
+    
+    // Death
     if(g.hp<=0){
-      gainXP(GDEF[g.type].xp,g.lastHit==='p2'&&S.p2?S.p2:S.p);S.stats.kills++;dropLoot(g.x,g.y);
-      S.ghouls.splice(i,1);glog('Ghoul down!','good');
+      const xp=g.isBoss?(BDEF[g.type]||{xp:200}).xp:(GDEF[g.type]||{xp:25}).xp;
+      gainXP(xp,g.lastHit==='p2'&&S.p2?S.p2:S.p);S.stats.kills++;
+      if(g.isBoss){
+        dropBossLoot(g.x,g.y);
+        glog(`Boss ${g.type} defeated! +${xp} XP`,'good');
+      }else{
+        dropLoot(g.x,g.y);
+        glog('Ghoul down!','good');
+      }
+      S.ghouls.splice(i,1);
     }
   }
 
@@ -681,11 +1058,18 @@ function update(dt){
     if(alivePlayers().some(pl=>Math.hypot(l.x-pl.x,l.y-pl.y)<32)){
       const picker=alivePlayers().find(pl=>Math.hypot(l.x-pl.x,l.y-pl.y)<32);
       if(!picker)continue;
-      const res=playerRes(picker);
-      if(l.n==='Food') res.food +=l.a;
-      if(l.n==='Wood') res.wood +=l.a;
-      if(l.n==='Metal')res.metal+=l.a;
-      if(picker===S.p)glog(`+${l.a} ${l.em}`,'good');
+      
+      if(l.isResource){
+        // Handle resource stacking
+        pickupResources(picker, l);
+      } else {
+        // Handle regular loot
+        const res=playerRes(picker);
+        if(l.n==='Food') addResource(picker, 'food', l.a);
+        if(l.n==='Wood') addResource(picker, 'wood', l.a);
+        if(l.n==='Metal') addResource(picker, 'metal', l.a);
+        if(picker===S.p)glog(`+${l.a} ${l.em}`,'good');
+      }
       S.loot.splice(i,1);
     }
   }
@@ -710,6 +1094,17 @@ function update(dt){
 function startWave(w){
   S.wave=w;S.wleft=3+w*2;S.stimer=1;
   waveAlert(`⚠ WAVE ${w}`);glog(`Wave ${w} incoming!`,'danger');
+  
+  // Spawn boss every 5 waves
+  if(w%5===0){
+    const bossTypes=['necromancer','beast','plague'];
+    const bossType=bossTypes[Math.floor(Math.random()*bossTypes.length)];
+    setTimeout(()=>spawnBoss(bossType),3000);
+  }
+  
+  // Add new enemy types as waves progress
+  if(w>=3)S.wleft+=2; // Extra enemies
+  if(w>=6)S.wleft+=3; // Even more
 }
 function waveAlert(txt){
   const el=document.getElementById('walert');
@@ -723,6 +1118,97 @@ function dropLoot(x,y){
   if(v<.5)      S.loot.push({x,y,em:'🌿',n:'Food', a:1+~~(Math.random()*2)});
   else if(v<.75)S.loot.push({x,y,em:'🪵',n:'Wood', a:2});
   else if(v<.9) S.loot.push({x,y,em:'⚙️',n:'Metal',a:1});
+}
+
+function dropBossLoot(x,y){
+  // Boss drops rare items and lots of resources
+  S.loot.push({x:x,y:y,em:'⚙️',n:'Metal',a:5+~~(Math.random()*5)});
+  S.loot.push({x:x,y:y-20,em:'🪵',n:'Wood',a:8+~~(Math.random()*8)});
+  S.loot.push({x:x+20,y:y,em:'🌿',n:'Food',a:6+~~(Math.random()*4)});
+  // Rare chance for special item
+  if(Math.random()<0.3){
+    S.loot.push({x:x,y:y-40,em:'💎',n:'Gem',a:1});
+    glog('Rare gem dropped!','good');
+  }
+}
+
+function createProjectile(x1,y1,x2,y2,damage){
+  if(!S.projectiles)S.projectiles=[];
+  const angle=Math.atan2(y2-y1,x2-x1);
+  S.projectiles.push({
+    x:x1,y:y1,vx:Math.cos(angle)*8,vy:Math.sin(angle)*8,
+    damage:damage,life:2,em:'☠'
+  });
+}
+
+function updateProjectiles(dt){
+  if(!S.projectiles)S.projectiles=[];
+  for(let i=S.projectiles.length-1;i>=0;i--){
+    const pr=S.projectiles[i];
+    pr.x+=pr.vx;pr.y+=pr.vy;pr.life-=dt;
+    
+    // Check collision with players
+    alivePlayers().forEach(p=>{
+      if(Math.hypot(p.x-pr.x,p.y-pr.y)<20){
+        p.hp-=pr.damage;p.inv=0.5;
+        glog(`Projectile hit for ${pr.damage}!`,'danger');flash();
+        pr.life=0;
+      }
+    });
+    
+    if(pr.life<=0)S.projectiles.splice(i,1);
+  }
+}
+
+function executeBossAbility(boss,ability,target){
+  switch(ability){
+    case 'summon':
+      for(let i=0;i<2;i++){
+        const types=['walker','crawler'];
+        spawnGhoul(types[Math.floor(Math.random()*types.length)]);
+      }
+      glog('Necromancer summoned minions!','danger');
+      break;
+    case 'curse':
+      alivePlayers().forEach(p=>{
+        p.hun=Math.max(0,p.hun-20);
+        p.tmp=Math.max(0,p.tmp-15);
+      });
+      glog('Necromancer cursed you!','danger');
+      break;
+    case 'leap':
+      const dist=Math.hypot(target.x-boss.x,target.y-boss.y);
+      if(dist>100){
+        const angle=Math.atan2(target.y-boss.y,target.x-boss.x);
+        boss.x+=Math.cos(angle)*150;
+        boss.y+=Math.sin(angle)*150;
+        glog('Beast leaped towards you!','danger');
+      }
+      break;
+    case 'roar':
+      alivePlayers().forEach(p=>{
+        p.inv=2; // Stun players
+      });
+      glog('Beast roared! You are stunned!','danger');
+      break;
+    case 'poison':
+      alivePlayers().forEach(p=>{
+        p.hp-=15;
+      });
+      glog('Plague released poison!','danger');
+      break;
+    case 'spawn':
+      for(let i=0;i<3;i++){
+        const angle=(Math.PI*2/3)*i;
+        const x=boss.x+Math.cos(angle)*100;
+        const y=boss.y+Math.sin(angle)*100;
+        S.ghouls.push({
+          x,y,hp:20,mhp:20,spd:40,dmg:8,em:'🦠',type:'spore',acd:0
+        });
+      }
+      glog('Plague spawned spores!','danger');
+      break;
+  }
 }
 
 // ═══ INTERACTION ═══
@@ -743,11 +1229,32 @@ function interact(player=S.p,aim=null){
   const {tile}=t;
   const bag=playerBag(player),res=playerRes(player);
   const hh=bag.some(i=>i.name==='Hatchet'),hp2=bag.some(i=>i.name==='Pickaxe');
+  const gatheringBonus=1+player.skills.gathering*0.5; // Gathering skill bonus
   let ok=false;
-  if(tile.t===T.TREE) {res.wood +=hh?3:1;if(player===S.p)glog(`+${hh?3:1} 🪵`,'good');ok=true;}
-  if(tile.t===T.ROCK) {res.stone+=hp2?3:1;if(player===S.p)glog(`+${hp2?3:1} 🪨`,'good');ok=true;}
-  if(tile.t===T.ORE)  {res.metal+=1;if(player===S.p)glog('+1 ⚙️','good');ok=true;}
-  if(tile.t===T.PLANT){res.food +=2;if(player===S.p)glog('+2 🌿','good');ok=true;}
+  if(tile.t===T.TREE) {
+    const amount=Math.floor((hh?3:1)*gatheringBonus);
+    const added=addResource(player, 'wood', amount);
+    if(added && player===S.p)glog(`+${amount} 🪵`,'good'),ok=true;
+    else if(!added && player===S.p)glog('Wood stacks full!','warn');
+  }
+  if(tile.t===T.ROCK) {
+    const amount=Math.floor((hp2?3:1)*gatheringBonus);
+    const added=addResource(player, 'stone', amount);
+    if(added && player===S.p)glog(`+${amount} 🪨`,'good'),ok=true;
+    else if(!added && player===S.p)glog('Stone stacks full!','warn');
+  }
+  if(tile.t===T.ORE)  {
+    const amount=Math.floor(1*gatheringBonus);
+    const added=addResource(player, 'metal', amount);
+    if(added && player===S.p)glog(`+${amount} ⚙️`,'good'),ok=true;
+    else if(!added && player===S.p)glog('Metal stacks full!','warn');
+  }
+  if(tile.t===T.PLANT){
+    const amount=Math.floor(2*gatheringBonus);
+    const added=addResource(player, 'food', amount);
+    if(added && player===S.p)glog(`+${amount} 🌿`,'good'),ok=true;
+    else if(!added && player===S.p)glog('Food stacks full!','warn');
+  }
   if(ok){
     tile.r--;gainXP(5,player);
     if(tile.r<=0)tile.t=T.GRASS;
@@ -758,19 +1265,49 @@ function interact(player=S.p,aim=null){
 function attack(player=S.p){
   if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'attack',name:localName('GUEST')});return;}
   const p=player,bag=playerBag(player),bow=bag.some(i=>i.name==='Bow');
-  const range=bow?220:65,dmg=bow?22:(bag.some(i=>i.name==='Hatchet')?18:10);
+  const range=bow?220:65;
+  let baseDmg=bow?22:(bag.some(i=>i.name==='Hatchet')?18:10);
+  baseDmg+=p.skills.strength*3; // Strength skill bonus
+  
   let best=null,bestD=range;
   S.ghouls.forEach((g,i)=>{const d=Math.hypot(g.x-p.x,g.y-p.y);if(d<bestD){bestD=d;best=i;}});
-  if(best!==null){const g=S.ghouls[best];g.hp-=dmg;g.lastHit=player===S.p2?'p2':'p';gainXP(8,player);if(player===S.p)glog(`Hit ${g.em} for ${dmg}!`,'warn');}
+  if(best!==null){
+    const g=S.ghouls[best];
+    let dmg=baseDmg;
+    if(g.armor) dmg*=0.5; // Tank armor reduction
+    g.hp-=dmg;g.lastHit=player===S.p2?'p2':'p';
+    gainXP(8,player);
+    if(player===S.p)glog(`Hit ${g.em} for ${dmg}!`,'warn');
+  }
 }
 
 function useItem(player=S.p){
   if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'use',name:localName('GUEST')});return;}
   const p=player,inv=playerBag(player),res=playerRes(player);
+  
+  // Medkit - better healing
+  const mk=inv.findIndex(i=>i.name==='Medkit');
+  if(mk>=0){p.hp=Math.min(p.maxhp,p.hp+60);inv[mk].c--;if(!inv[mk].c)inv.splice(mk,1);if(player===S.p){glog('+60 ❤ Medkit!','good');updInv();updHotbar();}return;}
+  
+  // Bandage
   const bi=inv.findIndex(i=>i.name==='Bandage');
   if(bi>=0){p.hp=Math.min(p.maxhp,p.hp+35);inv[bi].c--;if(!inv[bi].c)inv.splice(bi,1);if(player===S.p){glog('+35 ❤ Healed','good');updInv();updHotbar();}return;}
+  
+  // Stew
   const si=inv.findIndex(i=>i.name==='Stew');
   if(si>=0){p.hun=Math.min(100,p.hun+60);p.tmp=Math.min(100,p.tmp+20);inv[si].c--;if(!inv[si].c)inv.splice(si,1);if(player===S.p){glog('+60🍖 +20🌡 Stew!','good');updInv();updHotbar();}return;}
+  
+  // Compass - shows direction to spawn
+  const ci=inv.findIndex(i=>i.name==='Compass');
+  if(ci>=0){
+    const sp=findSpawn();
+    const angle=Math.atan2(sp.y-p.y,sp.x-p.x);
+    const dir=['E','SE','S','SW','W','NW','N','NE'][Math.floor(((angle*180/Math.PI+22.5)%360)/45)];
+    glog(`Compass points ${dir} to spawn`,'');
+    return;
+  }
+  
+  // Basic food
   if(res.food>0){res.food--;p.hun=Math.min(100,p.hun+25);if(player===S.p)glog('+25 🍖 Eaten','good');}
 }
 
@@ -785,6 +1322,18 @@ const REC={
   bow:     {cost:{wood:8,food:3},em:'🏹',name:'Bow'},
   bandage: {cost:{food:4},em:'🩹',name:'Bandage'},
   stew:    {cost:{food:4,wood:2},em:'🍲',name:'Stew'},
+  sword:   {cost:{wood:5,metal:8},em:'⚔️',name:'Sword'},
+  shield:  {cost:{wood:8,metal:6},em:'🛡️',name:'Shield'},
+  armor:   {cost:{metal:12,stone:4},em:'🦺',name:'Armor'},
+  medkit:  {cost:{food:6,metal:2},em:'🏥',name:'Medkit'},
+  crossbow:{cost:{wood:10,metal:5},em:'🏹',name:'Crossbow'},
+  furnace: {cost:{stone:15,metal:8},em:'🔥',name:'Furnace',place:T.FIRE},
+  watchtower:{cost:{wood:20,stone:10},em:'🏰',name:'Watchtower',place:T.WALL},
+  trap:    {cost:{wood:6,metal:4},em:'🪤',name:'Trap',place:T.SPIKE},
+  lantern: {cost:{metal:5,wood:3},em:'🏮',name:'Lantern',place:T.TORCH},
+  compass: {cost:{metal:3,stone:2},em:'🧭',name:'Compass'},
+  backpack: {cost:{wood:12,leather:8},em:'🎒',name:'Backpack',effect:'inventory'},
+  fishingrod:{cost:{wood:8,metal:2},em:'🎣',name:'Fishing Rod'},
 };
 
 function craft(id,player=S.p){
@@ -793,7 +1342,14 @@ function craft(id,player=S.p){
   for(const[k,v]of Object.entries(rec.cost))if((res[k]||0)<v){if(player===S.p)glog('Not enough resources!','warn');return;}
   for(const[k,v]of Object.entries(rec.cost))res[k]-=v;
   if(rec.place!==undefined)placeObj(rec.place,rec.em,player);
-  else{addInv(rec.em,rec.name,player);if(player===S.p)updHotbar();}
+  else if(rec.effect==='inventory'){
+    // Backpack increases inventory size
+    player.invSize+=10;
+    glog(`Inventory increased to ${player.invSize} slots!`,'good');
+  } else {
+    addInv(rec.em,rec.name,player);
+    if(player===S.p)updHotbar();
+  }
   gainXP(15,player);if(player===S.p)glog(`Crafted ${rec.em} ${rec.name}`,'good');
   if(player===S.p){updCraft();updInv();}
 }
@@ -870,6 +1426,35 @@ function render(){
     ctx.font='16px serif';ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText(l.em,sx,sy);ctx.textAlign='left';ctx.textBaseline='alphabetic';
   });
+  
+  // Projectiles
+  if(S.projectiles){
+    S.projectiles.forEach(pr=>{
+      const sx=pr.x-cam.x,sy=pr.y-cam.y;
+      ctx.font='18px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(pr.em,sx,sy);
+      ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    });
+  }
+
+  // NPCs
+  S.npcs.forEach(npc=>{
+    const sx=npc.x-cam.x,sy=npc.y-cam.y;
+    ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(sx,sy+12,10,4,0,0,Math.PI*2);ctx.fill();
+    ctx.font='24px serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(npc.em,sx,sy);
+    ctx.font='10px monospace';ctx.fillStyle='#fbbf24';
+    ctx.fillText(npc.name,sx,sy-24);
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    
+    // Show interaction hint if nearby
+    if(Math.hypot(S.p.x-npc.x,S.p.y-npc.y)<60){
+      ctx.fillStyle='rgba(251,191,36,0.3)';ctx.beginPath();ctx.arc(sx,sy,35,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fbbf24';ctx.font='9px monospace';ctx.textAlign='center';
+      ctx.fillText('[T] Trade',sx,sy-35);
+      ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    }
+  });
 
   // Ghouls
   S.ghouls.forEach(g=>{
@@ -904,7 +1489,99 @@ function render(){
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
   }
 
+  renderWeather();
   renderMM();
+}
+
+function updateWeather(dt){
+  S.weatherTimer-=dt;
+  if(S.weatherTimer<=0){
+    S.weatherTimer=30+Math.random()*60;
+    const rand=Math.random();
+    if(rand<0.4) S.weather=WEATHER.CLEAR;
+    else if(rand<0.6) S.weather=WEATHER.RAIN;
+    else if(rand<0.75) S.weather=WEATHER.FOG;
+    else if(rand<0.85) S.weather=WEATHER.SNOW;
+    else S.weather=WEATHER.STORM;
+    S.weatherIntensity=0.3+Math.random()*0.7;
+    glog(`Weather changed: ${['Clear','Rain','Fog','Snow','Storm'][S.weather]}`,'');
+  }
+  
+  // Update particles
+  if(S.weather===WEATHER.RAIN||S.weather===WEATHER.STORM){
+    for(let i=0;i<3;i++){
+      S.weatherParticles.push({
+        x:Math.random()*document.getElementById('canvas').width,
+        y:-10,
+        vx:(Math.random()-0.5)*2,
+        vy:8+Math.random()*4,
+        life:1
+      });
+    }
+  }
+  if(S.weather===WEATHER.SNOW){
+    for(let i=0;i<2;i++){
+      S.weatherParticles.push({
+        x:Math.random()*document.getElementById('canvas').width,
+        y:-10,
+        vx:(Math.random()-0.5)*1,
+        vy:2+Math.random()*2,
+        life:1
+      });
+    }
+  }
+  
+  // Update particles
+  for(let i=S.weatherParticles.length-1;i>=0;i--){
+    const p=S.weatherParticles[i];
+    p.x+=p.vx;
+    p.y+=p.vy;
+    p.life-=dt*0.5;
+    if(p.y>document.getElementById('canvas').height||p.life<=0){
+      S.weatherParticles.splice(i,1);
+    }
+  }
+  
+  // Weather effects on player
+  if(S.weather===WEATHER.RAIN||S.weather===WEATHER.STORM){
+    S.p.tmp=Math.max(0,S.p.tmp-2*dt);
+  }
+  if(S.weather===WEATHER.SNOW){
+    S.p.tmp=Math.max(0,S.p.tmp-1*dt);
+  }
+}
+
+function renderWeather(){
+  const cv=document.getElementById('canvas'),ctx=cv.getContext('2d');
+  if(S.weather===WEATHER.FOG){
+    ctx.fillStyle=`rgba(200,200,200,${0.3*S.weatherIntensity})`;
+    ctx.fillRect(0,0,cv.width,cv.height);
+  }
+  if(S.weather===WEATHER.STORM){
+    ctx.fillStyle=`rgba(40,40,60,${0.2*S.weatherIntensity})`;
+    ctx.fillRect(0,0,cv.width,cv.height);
+  }
+  
+  // Render particles
+  S.weatherParticles.forEach(p=>{
+    ctx.save();
+    ctx.globalAlpha=p.life*S.weatherIntensity;
+    if(S.weather===WEATHER.RAIN||S.weather===WEATHER.STORM){
+      ctx.strokeStyle='#4a90e2';
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(p.x,p.y);
+      ctx.lineTo(p.x-p.vx*2,p.y-p.vy*2);
+      ctx.stroke();
+    }
+    if(S.weather===WEATHER.SNOW){
+      ctx.fillStyle='white';
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,2,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  });
 }
 
 function renderMM(){
@@ -964,6 +1641,7 @@ function updateHUD(){
   st('vlvl',p.lvl);st('vlvl2',p.lvl);
   st('hghouls',S.ghouls.length);st('hwave',S.wave);
   st('rwood',res.wood);st('rstone',res.stone);st('rfood',res.food);st('rmetal',res.metal);
+  st('skillpoints',p.skillPoints||0);
   updCraft();
 }
 
@@ -977,10 +1655,10 @@ function updCraft(){
 }
 
 function updHotbar(){
-  const p=S.p,hotbar=['✊','','',''];
-  playerBag(p).forEach((item,i)=>{if(i<3)hotbar[i+1]=item.em;});
+  const p=S.p,hotbar=['✊','','','','','','','','',''];
+  playerBag(p).forEach((item,i)=>{if(i<7)hotbar[i+1]=item.em;});
   p.hotbar=hotbar;
-  for(let i=0;i<4;i++){
+  for(let i=0;i<8;i++){
     const sl=document.getElementById(`h${i}`);
     const num=sl.querySelector('.hn').outerHTML;
     sl.innerHTML=num+(hotbar[i]||'');
@@ -990,15 +1668,101 @@ function updHotbar(){
 
 function updInv(){
   const grid=document.getElementById('igrid');grid.innerHTML='';
-  for(let i=0;i<12;i++){
+  const invSize=S.p.invSize||12;
+  for(let i=0;i<invSize;i++){
     const item=playerBag(S.p)[i],sl=document.createElement('div');sl.className='is';
     if(item){sl.innerHTML=`${item.em}<span class="ic">${item.c>1?item.c:''}</span>`;sl.title=item.name;}
     grid.appendChild(sl);
   }
+  // Update grid columns based on inventory size
+  const cols=Math.ceil(Math.sqrt(invSize));
+  grid.style.gridTemplateColumns=`repeat(${cols}, 1fr)`;
 }
 
 // ═══ MISC ═══
-function gainXP(n,player=S.p){player.xp+=n;}
+function gainXP(n,player=S.p){
+  player.xp+=n;
+  // Check level up
+  if(player.xp>=player.xpn){
+    player.xp-=player.xpn;
+    player.lvl++;
+    player.xpn=~~(player.xpn*1.6);
+    player.skillPoints+=2;
+    player.maxhp+=15;
+    player.hp=Math.min(player.hp+25,player.maxhp);
+    glog(`🎉 Level ${player.lvl}! +2 Skill Points! Max HP +15`,'good');
+  }
+}
+
+function upgradeSkill(skill,player=S.p){
+  if(player.skillPoints<=0){
+    glog('No skill points available!','warn');
+    return;
+  }
+  const cost=player.skills[skill]+1;
+  if(player.skillPoints<cost){
+    glog(`Need ${cost} skill points!`,'warn');
+    return;
+  }
+  player.skills[skill]++;
+  player.skillPoints-=cost;
+  
+  // Apply skill effects
+  switch(skill){
+    case 'health':
+      player.maxhp+=10;
+      player.hp+=10;
+      glog('Health skill increased! +10 Max HP','good');
+      break;
+    case 'speed':
+      player.spd+=15;
+      glog('Speed skill increased! +15 Movement Speed','good');
+      break;
+    case 'strength':
+      // Applied in attack function
+      glog('Strength skill increased! +Damage','good');
+      break;
+    case 'crafting':
+      // Applied in craft function
+      glog('Crafting skill increased! Better recipes','good');
+      break;
+    case 'gathering':
+      // Applied in interact function
+      glog('Gathering skill increased! More resources','good');
+      break;
+  }
+  updateHUD();
+}
+
+function unlockPerk(perkId,player=S.p){
+  const perks={
+    'regen':{name:'Regeneration',cost:3,description:'Slowly regenerate health'},
+    'nightvision':{name:'Night Vision',cost:2,description:'See better at night'},
+    'lucky':{name:'Lucky',cost:4,description:'Better loot drops'},
+    'tank':{name:'Tank',cost:5,description:'50% damage reduction but slower'},
+    'scavenger':{name:'Scavenger',cost:3,description:'Double gathering speed'}
+  };
+  
+  const perk=perks[perkId];
+  if(!perk||player.skills.perks.includes(perkId)){
+    glog('Perk not available or already unlocked!','warn');
+    return;
+  }
+  if(player.skillPoints<perk.cost){
+    glog(`Need ${perk.cost} skill points for ${perk.name}!`,'warn');
+    return;
+  }
+  
+  player.skills.perks.push(perkId);
+  player.skillPoints-=perk.cost;
+  glog(`Perk unlocked: ${perk.name}!`,'good');
+  
+  // Apply perk effects
+  if(perkId==='tank'){
+    player.spd*=0.7;
+  }
+  updateHUD();
+}
 function flash(){const el=document.getElementById('dflash');el.style.opacity='1';setTimeout(()=>el.style.opacity='0',120);}
 function glog(msg,type){
   const el=document.getElementById('log'),e=document.createElement('div');
@@ -1012,15 +1776,39 @@ function die(){
   document.getElementById('dstats').innerHTML=`Survived ${m}m ${s}s | Day ${S.day} | Wave ${S.wave}<br>Ghouls killed: ${S.stats.kills}`;
   document.getElementById('dscr').style.display='flex';
 }
+function dropResourceMenu(){
+  const res=playerRes(S.p);
+  const resources=[];
+  
+  // Find available resources
+  if(res.wood>0)resources.push({type:'wood',amount:res.wood,em:'🪵'});
+  if(res.stone>0)resources.push({type:'stone',amount:res.stone,em:'🪨'});
+  if(res.food>0)resources.push({type:'food',amount:res.food,em:'🌿'});
+  if(res.metal>0)resources.push({type:'metal',amount:res.metal,em:'⚙️'});
+  
+  if(resources.length===0){
+    glog('No resources to drop!','warn');
+    return;
+  }
+  
+  // Simple drop: drop first available resource
+  const resource=resources[0];
+  const dropAmount=Math.min(10, resource.amount); // Drop 10 at a time
+  
+  if(dropResources(S.p, resource.type, dropAmount)){
+    glog(`Press D again to drop more ${resource.em}`,'');
+  }
+}
+
 function respawn(){document.getElementById('dscr').style.display='none';initAndStart();}
 
 // ═══ PANELS ═══
-const PSTATE={craft:false,inv:false,res:false};
+const PSTATE={craft:false,inv:false,res:false,skills:false};
 function togglePanel(n){PSTATE[n]=!PSTATE[n];syncPanels();}
 function closePanel(n){PSTATE[n]=false;syncPanels();}
 function syncPanels(){
-  const map={craft:'fp-craft',inv:'fp-inv',res:'fp-res'};
-  const bm={craft:'pb-craft',inv:'pb-inv',res:'pb-res'};
+  const map={craft:'fp-craft',inv:'fp-inv',res:'fp-res',skills:'fp-skills'};
+  const bm={craft:'pb-craft',inv:'pb-inv',res:'pb-res',skills:'pb-skills'};
   for(const[n,eid]of Object.entries(map)){
     document.getElementById(eid)?.classList.toggle('open',PSTATE[n]);
     document.getElementById(bm[n])?.classList.toggle('on',PSTATE[n]);
@@ -1037,8 +1825,11 @@ document.addEventListener('keydown',e=>{
   if(k==='c')togglePanel('craft');
   if(k==='i')togglePanel('inv');
   if(k==='r')togglePanel('res');
+  if(k==='k')togglePanel('skills');
+  if(k==='t')openNearbyTrade();
   if(k==='m'){const mc=document.getElementById('minimap');mc.style.display=mc.style.display==='none'?'block':'none';}
-  if('1234'.includes(k)&&k>='1'&&k<='4'){
+  if(k==='d')dropResourceMenu();
+  if('12345678'.includes(k)&&k>='1'&&k<='8'){
     const i=+k-1;S.p.hsel=i;
     document.querySelectorAll('.hs').forEach((s,j)=>s.classList.toggle('active',j===i));
   }
@@ -1077,6 +1868,7 @@ function initAndStart(){
   const sp=findSpawn();S.p.x=sp.x;S.p.y=sp.y;
   if(NET.mode==='host'&&NET.connected)S.p2=clonePlayer(S.p,NET.guestName);
   if(S.p2){const sp2=findSafeNear(S.p.x,S.p.y);S.p2.x=sp2.x;S.p2.y=sp2.y;S.remotePlayer=S.p2;}
+  initNPCs();
   resizeCanvases();
   const mc=document.getElementById('minimap');mc.style.display='block';
   startWave(1);
@@ -1084,7 +1876,7 @@ function initAndStart(){
   startLoop();
   glog('Welcome to Wasteland. Survive.','good');
   glog('E=gather  SPACE=attack  F=use item','');
-  glog('C=craft  I=inventory  R=resources','');
+  glog('C=craft  I=inventory  R=resources  T=trade','');
 }
 
 function startGame(){
