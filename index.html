@@ -352,18 +352,21 @@ function addResource(player, resourceType, amount){
   const canAdd=Math.min(amount, stackSize - (current % stackSize));
   res[resourceType]=current + canAdd;
   
-  // Add to inventory
+  // Add to inventory with proper stacking
   if(canAdd > 0){
     const bag=playerBag(player);
     const icons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
     const icon=icons[resourceType]||'📦';
     const itemName=resourceType.charAt(0).toUpperCase()+resourceType.slice(1);
     
-    // Add to existing stack or create new
+    // Find existing stack
     const existing=bag.find(i=>i.name===itemName);
     if(existing){
-      existing.c+=canAdd;
+      // Add to existing stack, respecting stack size
+      const maxInStack=Math.min(stackSize, existing.c + canAdd);
+      existing.c=maxInStack;
     } else {
+      // Create new stack
       bag.push({em:icon,name:itemName,c:canAdd});
     }
     
@@ -1724,7 +1727,7 @@ function updInv(){
   const res=playerRes(S.p);
   let invIndex=0;
   
-  // Add items from bag
+  // Add items from bag first
   bag.forEach(item=>{
     if(invIndex>=invSize)return;
     const sl=document.createElement('div');sl.className='is';
@@ -1734,17 +1737,29 @@ function updInv(){
     invIndex++;
   });
   
-  // Add resources from res as items
+  // Add resources from res as stacks (only if not already in bag)
   const resourceIcons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
   Object.entries(res).forEach(([type,amount])=>{
     if(invIndex>=invSize || amount<=0)return;
     const icon=resourceIcons[type];
     if(icon){
-      const sl=document.createElement('div');sl.className='is';
-      sl.innerHTML=`${icon}<span class="ic">${amount}</span>`;
-      sl.title=`${type.charAt(0).toUpperCase()+type.slice(1)} (from resources)`;
-      grid.appendChild(sl);
-      invIndex++;
+      // Check if this resource type is already in bag
+      const itemName=type.charAt(0).toUpperCase()+type.slice(1);
+      const existingInBag=bag.find(item=>item.name===itemName);
+      
+      if(!existingInBag){
+        const stackSize=STACK_SIZES[type]||STACK_SIZES.wood;
+        const stacksNeeded=Math.ceil(amount/stackSize);
+        
+        for(let i=0;i<stacksNeeded && invIndex<invSize;i++){
+          const stackAmount=Math.min(stackSize, amount - (i*stackSize));
+          const sl=document.createElement('div');sl.className='is';
+          sl.innerHTML=`${icon}<span class="ic">${stackAmount}</span>`;
+          sl.title=`${itemName} (from resources)`;
+          grid.appendChild(sl);
+          invIndex++;
+        }
+      }
     }
   });
   
