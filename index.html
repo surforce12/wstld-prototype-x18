@@ -18,6 +18,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .hphase{color:var(--yellow);}
 .hthreat{color:var(--red);font-size:11px;letter-spacing:1px;}
 .hrow{display:flex;align-items:center;gap:8px;}
+#hweather{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--blue);}
 #hbars{display:flex;flex-direction:column;gap:4px;}
 .sb{display:flex;align-items:center;gap:6px;}
 .sbico{font-size:11px;width:14px;}
@@ -113,6 +114,9 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
       <div class="hthreat">☣ <span id="hghouls">0</span> GHOULS</div>
       <div class="hmeta">Wave <span id="hwave">1</span></div>
     </div>
+    <div class="hbox" id="hweather" style="display:none;">
+      <span id="hweather-icon">☀</span> <span id="hweather-text">CLEAR</span>
+    </div>
   </div>
   <div class="hbox" id="hbars">
     <div class="sb"><span class="sbico">❤</span><div class="sbtrack"><div class="sbfill fhp" id="bhp" style="width:100%"></div></div><span class="sbval" id="vhp">100</span></div>
@@ -129,7 +133,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <button class="pbtn" id="pb-craft" onclick="togglePanel('craft')"><span class="pk">[C]</span>🔨 Craft</button>
   <button class="pbtn" id="pb-inv"   onclick="togglePanel('inv')">  <span class="pk">[I]</span>🎒 Items</button>
   <button class="pbtn" id="pb-res"   onclick="togglePanel('res')">  <span class="pk">[R]</span>📦 Res</button>
-  <button class="pbtn" id="pb-skills" onclick="togglePanel('skills')"></button><span class="pk">[K]</span>⚡ Skills</button>
+  <button class="pbtn" id="pb-skills" onclick="togglePanel('skills')"><span class="pk">[K]</span>⚡ Skills</button>
 </div>
 
 <!-- Hotbar -->
@@ -244,7 +248,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
     <div><span>SPACE/Click</span> — attack</div><div><span>F</span> — use item</div>
     <div><span>C</span> — crafting</div><div><span>I</span> — inventory</div>
     <div><span>R</span> — resources</div><div><span>M</span> — minimap</div>
-    <div><span>T</span> — trade (near NPC)</div>
+    <div><span>T</span> — trade (removed)</div>
   </div>
   <button id="sbtn" onclick="startGame()">▶ SURVIVE</button>
 </div>
@@ -340,14 +344,70 @@ function playerRes(player=S.p){return player.res||(player.res={wood:0,stone:0,fo
 function playerBag(player=S.p){return player.bag||(player.bag=[]);}
 function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊','','','','','','','','','']);}
 
-// Add resources with stacking
+// Add resources with stacking -优先放入hotbar
 function addResource(player, resourceType, amount){
   const res=playerRes(player);
   const stackSize=STACK_SIZES[resourceType]||STACK_SIZES.wood;
   const current=res[resourceType]||0;
   const canAdd=Math.min(amount, stackSize - (current % stackSize));
   res[resourceType]=current + canAdd;
+  
+  // Try to add to hotbar first
+  if(canAdd === amount){
+    addToHotbar(player, resourceType, amount);
+  }
+  
   return canAdd === amount; // Returns true if all resources added
+}
+
+// Add resource to hotbar if empty slots available
+function addToHotbar(player, resourceType, amount){
+  const hotbar=playerHotbar(player);
+  const icons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
+  const icon=icons[resourceType]||'📦';
+  
+  // Find empty hotbar slot (slot 0 is hand)
+  for(let i=1;i<hotbar.length;i++){
+    if(!hotbar[i] || hotbar[i] === ''){
+      hotbar[i]=icon;
+      player.hotbar=hotbar;
+      if(player===S.p)updHotbar();
+      glog(`+${icon} added to hotbar`,'good');
+      return true;
+    }
+  }
+  return false;
+}
+
+// Move item from hotbar to inventory
+function moveFromHotbarToInventory(slotIndex){
+  const hotbar=playerHotbar(S.p);
+  const item=hotbar[slotIndex];
+  
+  if(!item || item === '' || slotIndex === 0){
+    glog('Cannot move hand slot!','warn');
+    return;
+  }
+  
+  const bag=playerBag(S.p);
+  const icons={'🪵':'Wood','🪨':'Stone','🌿':'Food','⚙️':'Metal','🪓':'Hatchet','⛏':'Pickaxe','🏹':'Bow'};
+  const itemName=icons[item]||'Item';
+  
+  // Add to inventory
+  const existing=bag.find(i=>i.name===itemName);
+  if(existing){
+    existing.c=(existing.c||1)+1;
+  } else {
+    bag.push({em:item,name:itemName,c:1});
+  }
+  
+  // Remove from hotbar
+  hotbar[slotIndex]='';
+  S.p.hotbar=hotbar;
+  
+  updHotbar();
+  updInv();
+  glog(`Moved ${item} to inventory`,'good');
 }
 
 // Drop resources on ground
@@ -396,8 +456,7 @@ function mkState(){
     time:6*3600,day:1,wave:1,wleft:0,
     map:[],ghouls:[],loot:[],objs:[],
     cam:{x:0,y:0},stats:{surv:0,kills:0},stimer:0,
-    weather:WEATHER.CLEAR,weatherIntensity:0,weatherTimer:0,weatherParticles:[],
-    npcs:[],traderOpen:false
+    weather:WEATHER.CLEAR,weatherIntensity:0,weatherTimer:0,weatherParticles:[]
   };
 }
 
@@ -405,12 +464,7 @@ function clonePlayer(p,name){
   return {...p,...playerLoadout(),hp:p.maxhp,hun:100,tmp:80,xp:0,xpn:100,lvl:1,inv:0,name};
 }
 
-// NPC System
-const NPC_TYPES={
-  trader:{name:'Merchant',em:'🤠',dialog:'Trading goods for survival!'},
-  healer:{name:'Medic',em:'👩‍⚕️',dialog:'Need medical supplies?'},
-  blacksmith:{name:'Blacksmith',em:'👨‍🔧',dialog:'Quality tools and weapons!'}
-};
+// NPC System removed
 
 const SHOP_ITEMS={
   trader:[
@@ -433,39 +487,11 @@ const SHOP_ITEMS={
   ]
 };
 
-function spawnNPC(type,x,y){
-  const npcType=NPC_TYPES[type];
-  if(!npcType)return;
-  
-  S.npcs.push({
-    x,y,type,name:npcType.name,em:npcType.em,
-    dialog:npcType.dialog,inventory:[],coins:100
-  });
-}
+// NPC spawn function removed
 
-function initNPCs(){
-  // Spawn some NPCs on map
-  const sp=findSpawn();
-  spawnNPC('trader',sp.x+200,sp.y);
-  spawnNPC('healer',sp.x-200,sp.y);
-  spawnNPC('blacksmith',sp.x,sp.y+200);
-}
+// NPC init function removed
 
-function openNearbyTrade(){
-  const p=S.p;
-  let nearbyNPC=null;
-  for(const npc of S.npcs){
-    if(Math.hypot(npc.x-p.x,npc.y-p.y)<60){
-      nearbyNPC=npc;
-      break;
-    }
-  }
-  if(!nearbyNPC){
-    glog('No NPC nearby!','warn');
-    return;
-  }
-  openTrade(nearbyNPC);
-}
+// NPC trade function removed
 
 function openTrade(npc){
   S.traderOpen=npc;
@@ -1203,7 +1229,7 @@ function executeBossAbility(boss,ability,target){
         const x=boss.x+Math.cos(angle)*100;
         const y=boss.y+Math.sin(angle)*100;
         S.ghouls.push({
-          x,y,hp:20,mhp:20,spd:40,dmg:8,em:'🦠',type:'spore',acd:0
+          x:x,y:y,hp:20,mhp:20,spd:40,dmg:8,em:'🦠',type:'spore',acd:0
         });
       }
       glog('Plague spawned spores!','danger');
@@ -1438,23 +1464,7 @@ function render(){
   }
 
   // NPCs
-  S.npcs.forEach(npc=>{
-    const sx=npc.x-cam.x,sy=npc.y-cam.y;
-    ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(sx,sy+12,10,4,0,0,Math.PI*2);ctx.fill();
-    ctx.font='24px serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(npc.em,sx,sy);
-    ctx.font='10px monospace';ctx.fillStyle='#fbbf24';
-    ctx.fillText(npc.name,sx,sy-24);
-    ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    
-    // Show interaction hint if nearby
-    if(Math.hypot(S.p.x-npc.x,S.p.y-npc.y)<60){
-      ctx.fillStyle='rgba(251,191,36,0.3)';ctx.beginPath();ctx.arc(sx,sy,35,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle='#fbbf24';ctx.font='9px monospace';ctx.textAlign='center';
-      ctx.fillText('[T] Trade',sx,sy-35);
-      ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    }
-  });
+  // NPC rendering removed
 
   // Ghouls
   S.ghouls.forEach(g=>{
@@ -1631,6 +1641,25 @@ function updateClock(){
   if($('hphase'))$('hphase').textContent=phase;
 }
 
+function updateWeather(){
+  const weatherEl=document.getElementById('hweather');
+  const iconEl=document.getElementById('hweather-icon');
+  const textEl=document.getElementById('hweather-text');
+  
+  if(!weatherEl||!iconEl||!textEl)return;
+  
+  const weatherNames=['CLEAR','RAIN','SNOW','FOG','STORM'];
+  const weatherIcons=['☀','🌧','❄️','🌫','⛈'];
+  
+  if(S.weather!==undefined && S.weather!==null){
+    weatherEl.style.display='flex';
+    iconEl.textContent=weatherIcons[S.weather]||'☀';
+    textEl.textContent=weatherNames[S.weather]||'CLEAR';
+  } else {
+    weatherEl.style.display='none';
+  }
+}
+
 function updateHUD(){
   const p=S.p,res=playerRes(p);
   const sb=(id,v,mx)=>{const el=document.getElementById(id);if(el)el.style.width=`${Math.max(0,Math.min(100,v/mx*100))}%`;};
@@ -1643,6 +1672,7 @@ function updateHUD(){
   st('rwood',res.wood);st('rstone',res.stone);st('rfood',res.food);st('rmetal',res.metal);
   st('skillpoints',p.skillPoints||0);
   updCraft();
+  updateWeather();
 }
 
 function updCraft(){
@@ -1824,18 +1854,47 @@ document.addEventListener('keydown',e=>{
   if(k===' '){e.preventDefault();attack();}
   if(k==='c')togglePanel('craft');
   if(k==='i')togglePanel('inv');
-  if(k==='r')togglePanel('res');
+  // R key removed - resources panel no longer needed
   if(k==='k')togglePanel('skills');
-  if(k==='t')openNearbyTrade();
+  // T key removed - no trade
   if(k==='m'){const mc=document.getElementById('minimap');mc.style.display=mc.style.display==='none'?'block':'none';}
-  if(k==='d')dropResourceMenu();
+  // Movement keys
+  if(k==='a'||k==='arrowleft')keys.a=true;
+  if(k==='d'||k==='arrowright')keys.d=true;
   if('12345678'.includes(k)&&k>='1'&&k<='8'){
     const i=+k-1;S.p.hsel=i;
     document.querySelectorAll('.hs').forEach((s,j)=>s.classList.toggle('active',j===i));
   }
+  // Drop items with Q
+  if(k==='q')dropItemMenu();
 });
 document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
-document.getElementById('canvas').addEventListener('click',()=>{if(running)attack();});
+document.getElementById('canvas').addEventListener('click',()=>{
+  if(!running)return;
+  const cv=document.getElementById('canvas'),r=cv.getBoundingClientRect();
+  const mx=mouse.x-r.left+S.cam.x,my=mouse.y-r.top+S.cam.y;
+  
+  // Check hotbar clicks
+  const tileSize=TILE;
+  for(let i=0;i<8;i++){
+    const hx=S.p.x+(i-4)*tileSize*0.8;
+    const hy=S.p.y;
+    if(Math.abs(mx-hx)<tileSize/2 && Math.abs(my-hy)<tileSize/2){
+      if(S.p.hsel===i){
+        // Move item from hotbar to inventory
+        moveFromHotbarToInventory(i);
+      } else {
+        // Select hotbar slot
+        S.p.hsel=i;
+        updHotbar();
+      }
+      return;
+    }
+  }
+  
+  // Regular attack
+  attack();
+});
 document.addEventListener('mousemove',e=>{
   mouse={x:e.clientX,y:e.clientY};
   if(!S.p||!running)return;
@@ -1868,7 +1927,7 @@ function initAndStart(){
   const sp=findSpawn();S.p.x=sp.x;S.p.y=sp.y;
   if(NET.mode==='host'&&NET.connected)S.p2=clonePlayer(S.p,NET.guestName);
   if(S.p2){const sp2=findSafeNear(S.p.x,S.p.y);S.p2.x=sp2.x;S.p2.y=sp2.y;S.remotePlayer=S.p2;}
-  initNPCs();
+  // NPC init removed
   resizeCanvases();
   const mc=document.getElementById('minimap');mc.style.display='block';
   startWave(1);
