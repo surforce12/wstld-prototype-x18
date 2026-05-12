@@ -287,15 +287,6 @@ window.updHotbar = function() {
   }
 };
 
-window.INVENTORY_MANAGER = {
-  init: function(player) {
-    console.log('[INVENTORY] Fallback init called');
-    // Basic fallback initialization
-    if (!player.hotbar) player.hotbar = ['✊', '', '', '', '', ''];
-    if (!player.bag) player.bag = [];
-  }
-};
-
 // ═══ CONSTANTS ═══
 const TILE=40,MAP_W=64,MAP_H=64,DAY_DUR=240,PR=8,GR=TILE*1.5;
 const T={GRASS:0,TREE:1,ROCK:2,WATER:3,SAND:4,ORE:5,PLANT:6,FIRE:7,WALL:8,SPIKE:9,TORCH:10};
@@ -404,24 +395,62 @@ function addResource(player, resourceType, amount){
   return true;
 }
 
-// Global boot systems - MUST be defined before any boot code
-window.updHotbar = function() {
-  console.log('[HOTBAR] Global bridge called');
-  if (typeof updateHotbar === 'function') {
-    updateHotbar();
-  } else {
-    console.error('[HOTBAR] updateHotbar not available');
-  }
-};
+// ═══ CRITICAL BOOT SYSTEMS - MUST BE DECLARED FIRST ═══
+// Function declarations are hoisted - safe to use before definition
+function updateHotbar() {
+  const hotbar = playerHotbar(S.p);
+  const res = playerRes(S.p);
+  
+  // Update each hotbar slot
+  document.querySelectorAll('.hs').forEach((slot, i) => {
+    const item = hotbar[i];
+    
+    if (i === 0) {
+      // Hand slot - always show hand
+      slot.innerHTML = `<span class="hn">${i + 1}</span>${item || '✊'}`;
+    } else if (item && item !== '') {
+      // Check if this is a resource and show count
+      let displayContent = `<span class="hn">${i + 1}</span>${item}`;
+      
+      // Show resource count if this slot contains a resource
+      if (item === '🪵' && res.wood > 0) {
+        displayContent += `<span class="hc">${res.wood}</span>`;
+      } else if (item === '🪨' && res.stone > 0) {
+        displayContent += `<span class="hc">${res.stone}</span>`;
+      } else if (item === '🌿' && res.food > 0) {
+        displayContent += `<span class="hc">${res.food}</span>`;
+      } else if (item === '⚙️' && res.metal > 0) {
+        displayContent += `<span class="hc">${res.metal}</span>`;
+      }
+      
+      slot.innerHTML = displayContent;
+    } else {
+      // Empty slot
+      slot.innerHTML = `<span class="hn">${i + 1}</span>`;
+    }
+    
+    // Update active selection
+    slot.classList.toggle('active', i === (S.p.hsel || 0));
+  });
+}
 
-window.INVENTORY_MANAGER = {
+function updHotbar() {
+  // Call the actual implementation
+  updateHotbar();
+}
+
+// Temporary INVENTORY_MANAGER placeholder - will be overridden
+let INVENTORY_MANAGER = {
   init: function(player) {
-    console.log('[INVENTORY] Fallback init called');
-    // Basic fallback initialization
-    if (!player.hotbar) player.hotbar = ['✊', '', '', '', '', '', ''];
+    console.log('[INVENTORY] Temporary init called');
+    if (!player.hotbar) player.hotbar = ['✊', '', '', '', '', '', '', '', ''];
     if (!player.bag) player.bag = [];
   }
 };
+
+// Global access for boot validation
+window.updHotbar = updHotbar;
+window.INVENTORY_MANAGER = INVENTORY_MANAGER;
 
 // Debug hotbar function availability
 console.log("[DEBUG] updHotbar availability:", typeof updHotbar);
@@ -2292,7 +2321,7 @@ class InventoryContainer {
 }
 
 // Main inventory system - single source of truth
-const INVENTORY_MANAGER = {
+INVENTORY_MANAGER = {
   // Player containers
   hotbar: null,
   inventory: null,
@@ -2948,47 +2977,9 @@ const NETWORK_SAFETY = {
 // Initialize safety systems
 ERROR_HANDLER.init();
 
-// Legacy functions updated to work with new inventory system
-// Simple hotbar-first inventory system
-function updateHotbar(){
-  const hotbar = playerHotbar(S.p);
-  const res = playerRes(S.p);
-  
-  // Update each hotbar slot
-  document.querySelectorAll('.hs').forEach((slot, i) => {
-    const item = hotbar[i];
-    
-    if (i === 0) {
-      // Hand slot - always show hand
-      slot.innerHTML = `<span class="hn">${i + 1}</span>${item || '✊'}`;
-    } else if (item && item !== '') {
-      // Check if this is a resource and show count
-      let displayContent = `<span class="hn">${i + 1}</span>${item}`;
-      
-      // Show resource count if this slot contains a resource
-      if (item === '🪵' && res.wood > 0) {
-        displayContent += `<span class="hc">${res.wood}</span>`;
-      } else if (item === '🪨' && res.stone > 0) {
-        displayContent += `<span class="hc">${res.stone}</span>`;
-      } else if (item === '🌿' && res.food > 0) {
-        displayContent += `<span class="hc">${res.food}</span>`;
-      } else if (item === '⚙️' && res.metal > 0) {
-        displayContent += `<span class="hc">${res.metal}</span>`;
-      }
-      
-      slot.innerHTML = displayContent;
-    } else {
-      // Empty slot
-      slot.innerHTML = `<span class="hn">${i + 1}</span>`;
-    }
-    
-    // Update active selection
-    slot.classList.toggle('active', i === (S.p.hsel || 0));
-  });
-}
+// Duplicate updateHotbar function removed - implementation already declared above
 
-// Alias for backward compatibility - MUST be defined early
-const updHotbar = updateHotbar;
+// Alias removed - updHotbar already declared as function above
 
 // Simple inventory UI - show resources only
 function updInv(){
