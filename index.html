@@ -132,8 +132,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 <div id="pbtns">
   <button class="pbtn" id="pb-craft" onclick="togglePanel('craft')"><span class="pk">[C]</span>🔨 Craft</button>
   <button class="pbtn" id="pb-inv"   onclick="togglePanel('inv')">  <span class="pk">[I]</span>🎒 Items</button>
-  <button class="pbtn" id="pb-res"   onclick="togglePanel('res')">  <span class="pk">[R]</span>📦 Res</button>
-  <button class="pbtn" id="pb-skills" onclick="togglePanel('skills')"><span class="pk">[K]</span>⚡ Skills</button>
+    <button class="pbtn" id="pb-skills" onclick="togglePanel('skills')"><span class="pk">[K]</span>⚡ Skills</button>
 </div>
 
 <!-- Hotbar -->
@@ -244,11 +243,12 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <h1>☢ WASTELAND</h1>
   <p>Gather. Craft. Build. Survive the night.</p>
   <div class="cgrid">
-    <div><span>WASD</span> — move</div><div><span>E</span> — gather</div>
+    <div><span>WASD/Arrows</span> — move</div><div><span>E</span> — gather</div>
     <div><span>SPACE/Click</span> — attack</div><div><span>F</span> — use item</div>
     <div><span>C</span> — crafting</div><div><span>I</span> — inventory</div>
-    <div><span>R</span> — resources</div><div><span>M</span> — minimap</div>
-    <div><span>T</span> — trade (removed)</div>
+    <div><span>M</span> — minimap</div>
+    <div><span>Q</span> — drop item</div>
+    <div><span>1-8</span> — select hotbar</div>
   </div>
   <button id="sbtn" onclick="startGame()">▶ SURVIVE</button>
 </div>
@@ -344,7 +344,7 @@ function playerRes(player=S.p){return player.res||(player.res={wood:0,stone:0,fo
 function playerBag(player=S.p){return player.bag||(player.bag=[]);}
 function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊','','','','','','','','','']);}
 
-// Add resources with stacking -优先放入hotbar
+// Add resources with stacking - add to inventory directly
 function addResource(player, resourceType, amount){
   const res=playerRes(player);
   const stackSize=STACK_SIZES[resourceType]||STACK_SIZES.wood;
@@ -352,9 +352,25 @@ function addResource(player, resourceType, amount){
   const canAdd=Math.min(amount, stackSize - (current % stackSize));
   res[resourceType]=current + canAdd;
   
-  // Try to add to hotbar first
-  if(canAdd === amount){
-    addToHotbar(player, resourceType, amount);
+  // Add to inventory
+  if(canAdd > 0){
+    const bag=playerBag(player);
+    const icons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
+    const icon=icons[resourceType]||'📦';
+    const itemName=resourceType.charAt(0).toUpperCase()+resourceType.slice(1);
+    
+    // Add to existing stack or create new
+    const existing=bag.find(i=>i.name===itemName);
+    if(existing){
+      existing.c+=canAdd;
+    } else {
+      bag.push({em:icon,name:itemName,c:canAdd});
+    }
+    
+    if(player===S.p){
+      updInv();
+      glog(`+${canAdd} ${icon} ${itemName}`,'good');
+    }
   }
   
   return canAdd === amount; // Returns true if all resources added
@@ -1828,6 +1844,53 @@ function dropResourceMenu(){
   if(dropResources(S.p, resource.type, dropAmount)){
     glog(`Press D again to drop more ${resource.em}`,'');
   }
+}
+
+function dropItemMenu(){
+  const hotbar=playerHotbar(S.p);
+  const bag=playerBag(S.p);
+  const items=[];
+  
+  // Collect items from hotbar (except hand slot)
+  for(let i=1;i<hotbar.length;i++){
+    const item=hotbar[i];
+    if(item && item !== ''){
+      const icons={'🪵':'Wood','🪨':'Stone','🌿':'Food','⚙️':'Metal','🪓':'Hatchet','⛏':'Pickaxe','🏹':'Bow','🩹':'Bandage','🕯':'Torch'};
+      const itemName=icons[item]||'Item';
+      items.push({type:'hotbar',index:i,name:itemName,em:item});
+    }
+  }
+  
+  // Collect items from inventory
+  bag.forEach((item,i)=>{
+    if(item){
+      items.push({type:'inventory',index:i,name:item.name,em:item.em,c:item.c||1});
+    }
+  });
+  
+  if(items.length===0){
+    glog('No items to drop!','warn');
+    return;
+  }
+  
+  // Simple drop: drop first available item
+  const itemToDrop=items[0];
+  const dropAmount=itemToDrop.c||1;
+  
+  if(itemToDrop.type==='hotbar'){
+    // Remove from hotbar
+    hotbar[itemToDrop.index]='';
+    S.p.hotbar=hotbar;
+    updHotbar();
+    glog(`Dropped ${itemToDrop.em} from hotbar`,'');
+  } else {
+    // Remove from inventory
+    bag.splice(itemToDrop.index,1);
+    updInv();
+    glog(`Dropped ${itemToDrop.em} from inventory`,'');
+  }
+  
+  glog('Press Q again to drop more items','');
 }
 
 function respawn(){document.getElementById('dscr').style.display='none';initAndStart();}
