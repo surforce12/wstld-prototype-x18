@@ -1704,22 +1704,57 @@ function updHotbar(){
   const p=S.p,hotbar=['✊','','','','','','','','',''];
   playerBag(p).forEach((item,i)=>{if(i<7)hotbar[i+1]=item.em;});
   p.hotbar=hotbar;
+  
+  // Update hotbar display
   for(let i=0;i<8;i++){
     const sl=document.getElementById(`h${i}`);
     const num=sl.querySelector('.hn').outerHTML;
     sl.innerHTML=num+(hotbar[i]||'');
     sl.className='hs'+(p.hsel===i?' active':'');
   }
+  
+  // Update inventory to show resources
+  updInv();
 }
 
 function updInv(){
   const grid=document.getElementById('igrid');grid.innerHTML='';
   const invSize=S.p.invSize||12;
-  for(let i=0;i<invSize;i++){
-    const item=playerBag(S.p)[i],sl=document.createElement('div');sl.className='is';
-    if(item){sl.innerHTML=`${item.em}<span class="ic">${item.c>1?item.c:''}</span>`;sl.title=item.name;}
+  const bag=playerBag(S.p);
+  const res=playerRes(S.p);
+  let invIndex=0;
+  
+  // Add items from bag
+  bag.forEach(item=>{
+    if(invIndex>=invSize)return;
+    const sl=document.createElement('div');sl.className='is';
+    sl.innerHTML=`${item.em}<span class="ic">${item.c>1?item.c:''}</span>`;
+    sl.title=`${item.name} (from inventory)`;
     grid.appendChild(sl);
+    invIndex++;
+  });
+  
+  // Add resources from res as items
+  const resourceIcons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
+  Object.entries(res).forEach(([type,amount])=>{
+    if(invIndex>=invSize || amount<=0)return;
+    const icon=resourceIcons[type];
+    if(icon){
+      const sl=document.createElement('div');sl.className='is';
+      sl.innerHTML=`${icon}<span class="ic">${amount}</span>`;
+      sl.title=`${type.charAt(0).toUpperCase()+type.slice(1)} (from resources)`;
+      grid.appendChild(sl);
+      invIndex++;
+    }
+  });
+  
+  // Fill remaining slots
+  while(invIndex<invSize){
+    const sl=document.createElement('div');sl.className='is';
+    grid.appendChild(sl);
+    invIndex++;
   }
+  
   // Update grid columns based on inventory size
   const cols=Math.ceil(Math.sqrt(invSize));
   grid.style.gridTemplateColumns=`repeat(${cols}, 1fr)`;
