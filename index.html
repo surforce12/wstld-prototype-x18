@@ -61,11 +61,8 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .cbtn:hover:not(:disabled){background:#2a5a30;border-color:var(--green);}
 .cbtn:disabled{opacity:.35;cursor:not-allowed;}
 .cc{font-size:9px;color:var(--dim);}
-/* Inventory */
-.ig{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;}
-.is{aspect-ratio:1;background:#0d1208;border:1px solid var(--border);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:15px;position:relative;cursor:pointer;transition:border-color .15s;}
-.is:hover{border-color:var(--green);}
-.ic{position:absolute;bottom:1px;right:3px;font-size:8px;color:var(--green);}
+/* Inventory - REMOVED - hotbar-only system now */
+
 /* MINIMAP */
 #minimap{position:fixed;top:12px;right:12px;width:110px;height:110px;border:1px solid var(--border);background:#0a0c08;border-radius:3px;display:none;z-index:10;}
 /* OVERLAYS */
@@ -134,8 +131,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 <!-- Panel buttons -->
 <div id="pbtns">
   <button class="pbtn" id="pb-craft" onclick="togglePanel('craft')"><span class="pk">[C]</span>🔨 Craft</button>
-  <button class="pbtn" id="pb-inv"   onclick="togglePanel('inv')">  <span class="pk">[I]</span>🎒 Items</button>
-    <button class="pbtn" id="pb-skills" onclick="togglePanel('skills')"><span class="pk">[K]</span>⚡ Skills</button>
+  <button class="pbtn" id="pb-skills" onclick="togglePanel('skills')"><span class="pk">[K]</span>⚡ Skills</button>
 </div>
 
 <!-- Hotbar -->
@@ -173,13 +169,6 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <button class="cbtn" id="craft-backpack" onclick="craft('backpack')"> 🎒 Backpack <span class="cc">15🪵 10🪨 5🌿</span></button>
 </div>
 
-<!-- INVENTORY panel — right middle -->
-<div class="fp" id="fp-inv">
-  <div class="fpt">🎒 Inventory <span class="fpc" onclick="closePanel('inv')">✕</span></div>
-  <div class="ig" id="igrid"></div>
-  <div style="font-size:9px;color:var(--dim)">Click item to equip / F to use</div>
-</div>
-
 <!-- RESOURCES panel — bottom right -->
 <div class="fp" id="fp-res">
   <div class="fpt">📦 Resources <span class="fpc" onclick="closePanel('res')">✕</span></div>
@@ -193,6 +182,35 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
     <span class="lvllbl">⭐ LVL</span>
     <div class="lvltrk"><div class="sbfill fxp" id="bxp2" style="width:0%"></div></div>
     <span class="lvlval" id="vlvl2">1</span>
+  </div>
+</div>
+
+<!-- SKILLS panel -- left bottom -->
+<div class="fp" id="fp-skills" style="left:12px;bottom:72px;">
+  <div class="fpt">⚡ Skills <span class="fpc" onclick="closePanel('skills')">✕</span></div>
+  <div style="font-size:11px;color:var(--yellow);margin-bottom:8px;">Skill Points: <span id="skillpoints">0</span></div>
+  <div style="display:flex;flex-direction:column;gap:4px;">
+    <button class="cbtn" onclick="upgradeSkill('health')">
+      ❤ Health <span class="cc">+10 HP</span>
+    </button>
+    <button class="cbtn" onclick="upgradeSkill('speed')">
+      💨 Speed <span class="cc">+15 SPD</span>
+    </button>
+    <button class="cbtn" onclick="upgradeSkill('strength')">
+      💪 Strength <span class="cc">+DMG</span>
+    </button>
+    <button class="cbtn" onclick="upgradeSkill('crafting')">
+      🔨 Crafting <span class="cc">Better</span>
+    </button>
+    <button class="cbtn" onclick="upgradeSkill('gathering')">
+      🌿 Gathering <span class="cc">+RES</span>
+    </button>
+  </div>
+  <div style="margin-top:8px;font-size:10px;color:var(--dim);border-top:1px solid var(--border);padding-top:4px;">
+    <div>Perks:</div>
+    <button class="cbtn" onclick="unlockPerk('regen')" style="font-size:9px;">🩸 Regen (3)</button>
+    <button class="cbtn" onclick="unlockPerk('nightvision')" style="font-size:9px;">👁 Night Vision (2)</button>
+    <button class="cbtn" onclick="unlockPerk('lucky')" style="font-size:9px;">🍀 Lucky (4)</button>
   </div>
 </div>
 
@@ -258,6 +276,26 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 'use strict';
+
+// Global boot systems - MUST be defined before any boot code
+window.updHotbar = function() {
+  console.log('[HOTBAR] Global bridge called');
+  if (typeof updateHotbar === 'function') {
+    updateHotbar();
+  } else {
+    console.error('[HOTBAR] updateHotbar not available');
+  }
+};
+
+window.INVENTORY_MANAGER = {
+  init: function(player) {
+    console.log('[INVENTORY] Fallback init called');
+    // Basic fallback initialization
+    if (!player.hotbar) player.hotbar = ['✊', '', '', '', '', ''];
+    if (!player.bag) player.bag = [];
+  }
+};
+
 // ═══ CONSTANTS ═══
 const TILE=40,MAP_W=64,MAP_H=64,DAY_DUR=240,PR=8,GR=TILE*1.5;
 const T={GRASS:0,TREE:1,ROCK:2,WATER:3,SAND:4,ORE:5,PLANT:6,FIRE:7,WALL:8,SPIKE:9,TORCH:10};
@@ -350,36 +388,67 @@ function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊',''
 // Add resources with stacking - add to inventory directly
 function addResource(player, resourceType, amount){
   const res=playerRes(player);
-  const stackSize=STACK_SIZES[resourceType]||STACK_SIZES.wood;
   const current=res[resourceType]||0;
-  const canAdd=Math.min(amount, stackSize - (current % stackSize));
-  res[resourceType]=current + canAdd;
+  res[resourceType]=current+amount;
   
-  // Add to inventory with proper stacking
-  if(canAdd > 0){
-    const bag=playerBag(player);
+  // Update UI immediately
+  if(player===S.p){
+    updateHotbarWithResources();
+    updateHUD(); // Update resource display in HUD
+    
     const icons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
     const icon=icons[resourceType]||'📦';
-    const itemName=resourceType.charAt(0).toUpperCase()+resourceType.slice(1);
-    
-    // Find existing stack
-    const existing=bag.find(i=>i.name===itemName);
-    if(existing){
-      // Add to existing stack, respecting stack size
-      const maxInStack=Math.min(stackSize, existing.c + canAdd);
-      existing.c=maxInStack;
-    } else {
-      // Create new stack
-      bag.push({em:icon,name:itemName,c:canAdd});
-    }
-    
-    if(player===S.p){
-      updInv();
-      glog(`+${canAdd} ${icon} ${itemName}`,'good');
+    glog(`+${amount} ${icon} ${resourceType}`,'good');
+  }
+  
+  return true;
+}
+
+// Global boot systems - MUST be defined before any boot code
+window.updHotbar = function() {
+  console.log('[HOTBAR] Global bridge called');
+  if (typeof updateHotbar === 'function') {
+    updateHotbar();
+  } else {
+    console.error('[HOTBAR] updateHotbar not available');
+  }
+};
+
+window.INVENTORY_MANAGER = {
+  init: function(player) {
+    console.log('[INVENTORY] Fallback init called');
+    // Basic fallback initialization
+    if (!player.hotbar) player.hotbar = ['✊', '', '', '', '', '', ''];
+    if (!player.bag) player.bag = [];
+  }
+};
+
+// Debug hotbar function availability
+console.log("[DEBUG] updHotbar availability:", typeof updHotbar);
+console.log("[DEBUG] updateHotbar availability:", typeof updateHotbar);
+
+// Update hotbar to show resources from player state
+function updateHotbarWithResources(){
+  const hotbar = playerHotbar(S.p);
+  const res = playerRes(S.p);
+  const resourceIcons = { wood: '🪵', stone: '🪨', food: '🌿', metal: '⚙️' };
+  
+  // Auto-fill empty hotbar slots with resources (except slot 0 - hand)
+  let slotIndex = 1; // Start from slot 1 (skip hand)
+  
+  for (const [resourceType, amount] of Object.entries(res)) {
+    if (amount > 0 && slotIndex < hotbar.length) {
+      const icon = resourceIcons[resourceType];
+      if (icon && (!hotbar[slotIndex] || hotbar[slotIndex] === '')) {
+        hotbar[slotIndex] = icon;
+        S.p.hotbar = hotbar;
+        slotIndex++;
+      }
     }
   }
   
-  return canAdd === amount; // Returns true if all resources added
+  // Update hotbar UI immediately
+  updateHotbar();
 }
 
 // Add resource to hotbar if empty slots available
@@ -462,13 +531,8 @@ function pickupResources(player, loot){
   const res=playerRes(player);
   const added=addResource(player, loot.n.toLowerCase(), loot.a);
   
-  if(added){
-    glog(`+${loot.a} ${loot.em} ${loot.n}`,'good');
-    return true;
-  } else {
-    glog(`Inventory full for ${loot.n}!`,'warn');
-    return false;
-  }
+  // No duplicate logging - addResource handles it
+  return added;
 }
 
 function mkState(){
@@ -942,7 +1006,7 @@ function startLoop(){
   if(NET.looping)return;
   NET.looping=true;
   last=performance.now();
-  requestAnimationFrame(loop);
+  PERFORMANCE_MONITOR.safeRequestAnimationFrame(loop);
 }
 
 function movePlayer(p,input,dt){
@@ -1128,12 +1192,12 @@ function update(dt){
         // Handle resource stacking
         pickupResources(picker, l);
       } else {
-        // Handle regular loot
+        // Handle regular loot - single logging
         const res=playerRes(picker);
         if(l.n==='Food') addResource(picker, 'food', l.a);
         if(l.n==='Wood') addResource(picker, 'wood', l.a);
         if(l.n==='Metal') addResource(picker, 'metal', l.a);
-        if(picker===S.p)glog(`+${l.a} ${l.em}`,'good');
+        // No duplicate glog here - addResource handles logging
       }
       S.loot.splice(i,1);
     }
@@ -1346,34 +1410,42 @@ function attack(player=S.p){
   }
 }
 
-function useItem(player=S.p){
-  if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'use',name:localName('GUEST')});return;}
-  const p=player,inv=playerBag(player),res=playerRes(player);
+function useItem(){
+  if (!S.p) return;
   
-  // Medkit - better healing
-  const mk=inv.findIndex(i=>i.name==='Medkit');
-  if(mk>=0){p.hp=Math.min(p.maxhp,p.hp+60);inv[mk].c--;if(!inv[mk].c)inv.splice(mk,1);if(player===S.p){glog('+60 ❤ Medkit!','good');updInv();updHotbar();}return;}
+  const hotbar = playerHotbar(S.p);
+  const slotIndex = S.p.hsel || 0;
+  const item = hotbar[slotIndex];
   
-  // Bandage
-  const bi=inv.findIndex(i=>i.name==='Bandage');
-  if(bi>=0){p.hp=Math.min(p.maxhp,p.hp+35);inv[bi].c--;if(!inv[bi].c)inv.splice(bi,1);if(player===S.p){glog('+35 ❤ Healed','good');updInv();updHotbar();}return;}
-  
-  // Stew
-  const si=inv.findIndex(i=>i.name==='Stew');
-  if(si>=0){p.hun=Math.min(100,p.hun+60);p.tmp=Math.min(100,p.tmp+20);inv[si].c--;if(!inv[si].c)inv.splice(si,1);if(player===S.p){glog('+60🍖 +20🌡 Stew!','good');updInv();updHotbar();}return;}
-  
-  // Compass - shows direction to spawn
-  const ci=inv.findIndex(i=>i.name==='Compass');
-  if(ci>=0){
-    const sp=findSpawn();
-    const angle=Math.atan2(sp.y-p.y,sp.x-p.x);
-    const dir=['E','SE','S','SW','W','NW','N','NE'][Math.floor(((angle*180/Math.PI+22.5)%360)/45)];
-    glog(`Compass points ${dir} to spawn`,'');
+  if (!item || slotIndex === 0) {
+    glog('No item to use!', 'warn');
     return;
   }
   
-  // Basic food
-  if(res.food>0){res.food--;p.hun=Math.min(100,p.hun+25);if(player===S.p)glog('+25 🍖 Eaten','good');}
+  const res = playerRes(S.p);
+  
+  // Handle different item types
+  if (item === '🌿' && res.food > 0) {
+    res.food--;
+    S.p.hun = Math.min(100, S.p.hun + 25);
+    glog('+25 🍖 Eaten', 'good');
+  } else if (item === '🩹') {
+    // Bandage from inventory (legacy support)
+    const bag = playerBag(S.p);
+    const bandageIndex = bag.findIndex(i => i.name === 'Bandage');
+    if (bandageIndex >= 0) {
+      S.p.hp = Math.min(S.p.maxhp, S.p.hp + 35);
+      bag[bandageIndex].c--;
+      if (bag[bandageIndex].c <= 0) bag.splice(bandageIndex, 1);
+      glog('+35 ❤ Healed', 'good');
+    }
+  } else {
+    glog(`Cannot use ${item}`, 'warn');
+  }
+  
+  updateHUD();
+  updInv();
+  updHotbar();
 }
 
 // ═══ CRAFTING ═══
@@ -1412,11 +1484,31 @@ function craft(id,player=S.p){
     player.invSize+=10;
     glog(`Inventory increased to ${player.invSize} slots!`,'good');
   } else {
-    addInv(rec.em,rec.name,player);
+    // Add to hotbar or inventory
+    const hotbar = playerHotbar(player);
+    let addedToHotbar = false;
+    
+    // Try to add to empty hotbar slot first
+    for(let i=1;i<hotbar.length;i++){
+      if(!hotbar[i] || hotbar[i] === ''){
+        hotbar[i]=rec.em;
+        player.hotbar=hotbar;
+        addedToHotbar = true;
+        break;
+      }
+    }
+    
+    if(!addedToHotbar){
+      // Add to inventory bag
+      const bag = playerBag(player);
+      const existing=bag.find(i=>i.name===rec.name);
+      if(existing)existing.c++;else bag.push({em:rec.em,name:rec.name,c:1});
+    }
+    
     if(player===S.p)updHotbar();
   }
   gainXP(15,player);if(player===S.p)glog(`Crafted ${rec.em} ${rec.name}`,'good');
-  if(player===S.p){updCraft();updInv();}
+  if(player===S.p){updCraft();updInv();updateHUD();}
 }
 
 // Building system with ghost preview and validation
@@ -1879,276 +1971,796 @@ function updCraft(){
   }
 }
 
-function updHotbar(){
-  const p=S.p;
-  const hotbar=p.hotbar||['✊','','','','','','','','',''];
+// ═══ INVENTORY ARCHITECTURE REWRITE ═══
+// Single source of truth inventory system
+
+// Item definition registry
+const ITEM_REGISTRY = {
+  // Resources
+  wood: { id: 'wood', name: 'Wood', icon: '🪵', stackable: true, maxStack: 20, category: 'resource' },
+  stone: { id: 'stone', name: 'Stone', icon: '🪨', stackable: true, maxStack: 40, category: 'resource' },
+  food: { id: 'food', name: 'Food', icon: '🌿', stackable: true, maxStack: 20, category: 'resource' },
+  metal: { id: 'metal', name: 'Metal', icon: '⚙️', stackable: true, maxStack: 10, category: 'resource' },
   
-  // Update hotbar display only (don't auto-fill from inventory)
-  for(let i=0;i<8;i++){
-    const sl=document.getElementById(`h${i}`);
-    const num=sl.querySelector('.hn').outerHTML;
-    let itemDisplay=hotbar[i]||'';
+  // Tools
+  hatchet: { id: 'hatchet', name: 'Hatchet', icon: '🪓', stackable: false, category: 'tool' },
+  pickaxe: { id: 'pickaxe', name: 'Pickaxe', icon: '⛏', stackable: false, category: 'tool' },
+  bow: { id: 'bow', name: 'Bow', icon: '🏹', stackable: false, category: 'weapon' },
+  
+  // Building
+  wall: { id: 'wall', name: 'Wall', icon: '🧱', stackable: false, category: 'building' },
+  spikes: { id: 'spikes', name: 'Spikes', icon: '🪤', stackable: false, category: 'building' },
+  torch: { id: 'torch', name: 'Torch', icon: '🕯', stackable: false, category: 'building' },
+  
+  // Consumables
+  bandage: { id: 'bandage', name: 'Bandage', icon: '🩹', stackable: true, maxStack: 5, category: 'consumable' },
+  medkit: { id: 'medkit', name: 'Medkit', icon: '🏥', stackable: true, maxStack: 3, category: 'consumable' },
+  stew: { id: 'stew', name: 'Stew', icon: '🍲', stackable: true, maxStack: 3, category: 'consumable' }
+};
+
+// Item class - immutable data structure
+class InventoryItem {
+  constructor(itemType, quantity = 1, metadata = {}) {
+    const definition = ITEM_REGISTRY[itemType];
+    if (!definition) {
+      throw new Error(`Unknown item type: ${itemType}`);
+    }
     
-    // Add stack count if item is a resource
-    if(itemDisplay && itemDisplay !== '✊'){
-      const resourceIcons={'🪵':'Wood','🪨':'Stone','🌿':'Food','⚙️':'Metal'};
-      const resourceName=resourceIcons[itemDisplay];
-      if(resourceName){
-        const res=playerRes(p);
-        const amount=res[resourceName.toLowerCase()]||0;
-        if(amount>0){
-          itemDisplay+=`<span class="hc">${amount}</span>`;
+    this.id = this.generateId();
+    this.itemType = itemType;
+    this.quantity = Math.max(1, Math.floor(quantity));
+    this.maxStack = definition.maxStack || 1;
+    this.metadata = { ...metadata };
+    this.definition = definition;
+  }
+  
+  generateId() {
+    return `item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+  
+  // Immutable operations - return new instances
+  addQuantity(amount) {
+    const newQuantity = Math.min(this.quantity + amount, this.maxStack);
+    return new InventoryItem(this.itemType, newQuantity, this.metadata);
+  }
+  
+  removeQuantity(amount) {
+    const newQuantity = Math.max(0, this.quantity - amount);
+    return new InventoryItem(this.itemType, newQuantity, this.metadata);
+  }
+  
+  canStackWith(otherItem) {
+    if (!otherItem || !(otherItem instanceof InventoryItem)) return false;
+    return this.itemType === otherItem.itemType && 
+           this.definition.stackable && 
+           JSON.stringify(this.metadata) === JSON.stringify(otherItem.metadata);
+  }
+  
+  clone() {
+    return new InventoryItem(this.itemType, this.quantity, this.metadata);
+  }
+  
+  // Getters for UI
+  get icon() { return this.definition.icon; }
+  get name() { return this.definition.name; }
+  get stackable() { return this.definition.stackable; }
+  get category() { return this.definition.category; }
+}
+
+// Slot class - represents a single inventory slot
+class InventorySlot {
+  constructor(index = null, container = null) {
+    this.index = index;
+    this.container = container;
+    this.itemId = null; // Reference to item by ID
+    this._item = null; // Cached item reference
+  }
+  
+  // Set item in slot
+  setItem(item) {
+    this.itemId = item ? item.id : null;
+    this._item = item || null;
+    return this;
+  }
+  
+  // Get item from slot
+  getItem() {
+    return this._item;
+  }
+  
+  // Check if slot is empty
+  isEmpty() {
+    return this.itemId === null;
+  }
+  
+  // Check if slot can accept item
+  canAccept(item) {
+    if (this.isEmpty()) return true;
+    const currentItem = this.getItem();
+    return currentItem && currentItem.canStackWith(item);
+  }
+  
+  // Clear slot
+  clear() {
+    this.setItem(null);
+    return this;
+  }
+  
+  // Clone slot
+  clone() {
+    const cloned = new InventorySlot(this.index, this.container);
+    cloned.itemId = this.itemId;
+    cloned._item = this._item ? this._item.clone() : null;
+    return cloned;
+  }
+}
+
+// Container class - manages slots
+class InventoryContainer {
+  constructor(size, type = 'inventory') {
+    this.type = type;
+    this.size = size;
+    this.slots = Array.from({ length: size }, (_, i) => new InventorySlot(i, this));
+    this.items = new Map(); // Items by ID for O(1) lookup
+    this.listeners = []; // Change listeners
+  }
+  
+  // Add change listener
+  addListener(callback) {
+    this.listeners.push(callback);
+  }
+  
+  // Notify listeners of changes
+  notifyListeners(changeType, slotIndex, item = null) {
+    this.listeners.forEach(callback => {
+      try {
+        callback({ type: changeType, slotIndex, item, container: this });
+      } catch (error) {
+        console.error('[INVENTORY] Listener error:', error);
+      }
+    });
+  }
+  
+  // Get slot by index
+  getSlot(index) {
+    if (index < 0 || index >= this.size) return null;
+    return this.slots[index];
+  }
+  
+  // Get all items
+  getAllItems() {
+    return Array.from(this.items.values());
+  }
+  
+  // Find empty slot
+  findEmptySlot() {
+    return this.slots.findIndex(slot => slot.isEmpty());
+  }
+  
+  // Find slot with specific item type
+  findSlotWithItem(itemType) {
+    return this.slots.findIndex(slot => {
+      const item = slot.getItem();
+      return item && item.itemType === itemType;
+    });
+  }
+  
+  // Add item to container
+  addItem(item, preferredSlot = null) {
+    if (!item || !(item instanceof InventoryItem)) {
+      throw new Error('Invalid item');
+    }
+    
+    // Try to stack with existing items first
+    if (item.stackable) {
+      for (let i = 0; i < this.size; i++) {
+        const slot = this.slots[i];
+        const existingItem = slot.getItem();
+        
+        if (existingItem && existingItem.canStackWith(item)) {
+          const newQuantity = Math.min(existingItem.quantity + item.quantity, existingItem.maxStack);
+          const remaining = existingItem.quantity + item.quantity - newQuantity;
+          
+          const updatedItem = existingItem.addQuantity(item.quantity);
+          this.items.set(updatedItem.id, updatedItem);
+          slot.setItem(updatedItem);
+          
+          this.notifyListeners('item_updated', i, updatedItem);
+          
+          if (remaining > 0) {
+            return this.addItem(item.removeQuantity(item.quantity - remaining));
+          }
+          return { success: true, remaining: 0 };
         }
       }
     }
     
-    sl.innerHTML=num+itemDisplay;
-    sl.className='hs'+(p.hsel===i?' active':'');
+    // Find empty slot
+    const targetSlot = preferredSlot !== null ? preferredSlot : this.findEmptySlot();
+    
+    if (targetSlot === -1 || targetSlot >= this.size) {
+      return { success: false, remaining: item.quantity, error: 'No space available' };
+    }
+    
+    this.items.set(item.id, item);
+    this.slots[targetSlot].setItem(item);
+    
+    this.notifyListeners('item_added', targetSlot, item);
+    
+    return { success: true, remaining: 0 };
+  }
+  
+  // Remove item from slot
+  removeItem(slotIndex, quantity = null) {
+    const slot = this.getSlot(slotIndex);
+    if (!slot || slot.isEmpty()) {
+      return null;
+    }
+    
+    const item = slot.getItem();
+    let removedItem;
+    
+    if (quantity === null || quantity >= item.quantity) {
+      // Remove entire item
+      removedItem = item;
+      slot.clear();
+      this.items.delete(item.id);
+      this.notifyListeners('item_removed', slotIndex, removedItem);
+    } else {
+      // Remove partial quantity
+      const remainingItem = item.removeQuantity(quantity);
+      removedItem = new InventoryItem(item.itemType, quantity, item.metadata);
+      
+      this.items.set(remainingItem.id, remainingItem);
+      slot.setItem(remainingItem);
+      
+      this.notifyListeners('item_updated', slotIndex, remainingItem);
+    }
+    
+    return removedItem;
+  }
+  
+  // Swap items between slots
+  swapSlots(slotIndex1, slotIndex2) {
+    const slot1 = this.getSlot(slotIndex1);
+    const slot2 = this.getSlot(slotIndex2);
+    
+    if (!slot1 || !slot2) {
+      return false;
+    }
+    
+    const item1 = slot1.getItem();
+    const item2 = slot2.getItem();
+    
+    slot1.setItem(item2);
+    slot2.setItem(item1);
+    
+    this.notifyListeners('slot_swapped', slotIndex1, item1);
+    this.notifyListeners('slot_swapped', slotIndex2, item2);
+    
+    return true;
+  }
+  
+  // Move item from one slot to another
+  moveItem(fromSlot, toSlot, quantity = null) {
+    const sourceSlot = this.getSlot(fromSlot);
+    const targetSlot = this.getSlot(toSlot);
+    
+    if (!sourceSlot || !targetSlot || sourceSlot.isEmpty()) {
+      return false;
+    }
+    
+    const sourceItem = sourceSlot.getItem();
+    const targetItem = targetSlot.getItem();
+    
+    if (targetSlot.isEmpty()) {
+      // Move to empty slot
+      const movedItem = this.removeItem(fromSlot, quantity);
+      if (movedItem) {
+        this.addItem(movedItem, toSlot);
+      }
+    } else if (sourceItem.canStackWith(targetItem)) {
+      // Stack items
+      const movedItem = this.removeItem(fromSlot, quantity);
+      if (movedItem) {
+        this.addItem(movedItem, toSlot);
+      }
+    } else {
+      // Swap items
+      this.swapSlots(fromSlot, toSlot);
+    }
+    
+    return true;
+  }
+  
+  // Get container state for serialization
+  getState() {
+    return {
+      type: this.type,
+      size: this.size,
+      slots: this.slots.map(slot => ({
+        itemId: slot.itemId,
+        item: slot.getItem() ? {
+          id: slot.getItem().id,
+          itemType: slot.getItem().itemType,
+          quantity: slot.getItem().quantity,
+          metadata: slot.getItem().metadata
+        } : null
+      }))
+    };
   }
 }
 
-// Improved inventory and item management system
-const INVENTORY_SYSTEM = {
-  // Item definitions and validation
-  ITEM_TYPES: {
-    // Tools
-    hatchet: { name: 'Hatchet', icon: '🪓', stackable: false, category: 'tool' },
-    pickaxe: { name: 'Pickaxe', icon: '⛏', stackable: false, category: 'tool' },
-    bow: { name: 'Bow', icon: '🏹', stackable: false, category: 'weapon' },
+// Main inventory system - single source of truth
+const INVENTORY_MANAGER = {
+  // Player containers
+  hotbar: null,
+  inventory: null,
+  
+  // Initialize containers
+  init(player = S.p) {
+    this.hotbar = new InventoryContainer(8, 'hotbar');
+    this.inventory = new InventoryContainer(player.invSize || 12, 'inventory');
     
-    // Building materials
-    wall: { name: 'Wall', icon: '🧱', stackable: false, category: 'building' },
-    spikes: { name: 'Spikes', icon: '🪤', stackable: false, category: 'building' },
-    torch: { name: 'Torch', icon: '🕯', stackable: false, category: 'building' },
+    // Load existing data
+    this.loadFromPlayer(player);
     
-    // Consumables
-    bandage: { name: 'Bandage', icon: '🩹', stackable: true, maxStack: 5, category: 'consumable' },
-    medkit: { name: 'Medkit', icon: '🏥', stackable: true, maxStack: 3, category: 'consumable' },
-    stew: { name: 'Stew', icon: '🍲', stackable: true, maxStack: 3, category: 'consumable' },
+    // Set up change listeners for UI updates
+    this.hotbar.addListener(this.onContainerChange.bind(this));
+    this.inventory.addListener(this.onContainerChange.bind(this));
     
-    // Resources
-    wood: { name: 'Wood', icon: '🪵', stackable: true, maxStack: 20, category: 'resource' },
-    stone: { name: 'Stone', icon: '🪨', stackable: true, maxStack: 40, category: 'resource' },
-    food: { name: 'Food', icon: '🌿', stackable: true, maxStack: 20, category: 'resource' },
-    metal: { name: 'Metal', icon: '⚙️', stackable: true, maxStack: 10, category: 'resource' }
+    console.log('[INVENTORY] Initialized with clean architecture');
   },
   
-  // Get item definition
-  getItemDef(itemId) {
-    if (typeof itemId === 'string') {
-      // Try to find by ID
-      const def = this.ITEM_TYPES[itemId];
-      if (def) return def;
-      
-      // Try to find by icon
-      for (const [id, itemDef] of Object.entries(this.ITEM_TYPES)) {
-        if (itemDef.icon === itemId) return itemDef;
+  // Load data from player object
+  loadFromPlayer(player) {
+    // Load hotbar
+    const hotbarData = player.hotbar || ['✊', '', '', '', '', '', '', '', ''];
+    hotbarData.forEach((itemData, index) => {
+      if (itemData && itemData !== '✊') {
+        const itemType = this.getItemTypeFromIcon(itemData);
+        if (itemType) {
+          const item = new InventoryItem(itemType, 1);
+          this.hotbar.addItem(item, index);
+        }
+      }
+    });
+    
+    // Load inventory
+    const bagData = player.bag || [];
+    bagData.forEach(itemData => {
+      if (itemData && itemData.em) {
+        const itemType = this.getItemTypeFromIcon(itemData.em);
+        if (itemType) {
+          const item = new InventoryItem(itemType, itemData.c || 1);
+          this.inventory.addItem(item);
+        }
+      }
+    });
+  },
+  
+  // Save data to player object
+  saveToPlayer(player = S.p) {
+    // Save hotbar
+    player.hotbar = this.hotbar.slots.map(slot => {
+      const item = slot.getItem();
+      if (!item) return '';
+      if (slot.index === 0) return '✊'; // Hand slot
+      return item.icon;
+    });
+    
+    // Save inventory
+    player.bag = this.inventory.getAllItems().map(item => ({
+      em: item.icon,
+      name: item.name,
+      c: item.quantity
+    }));
+  },
+  
+  // Get item type from icon
+  getItemTypeFromIcon(icon) {
+    for (const [itemType, definition] of Object.entries(ITEM_REGISTRY)) {
+      if (definition.icon === icon) {
+        return itemType;
       }
     }
     return null;
   },
   
-  // Validate item data
-  validateItem(item) {
-    if (!item) return { valid: false, error: 'Item is null/undefined' };
+  // Container change listener
+  onContainerChange(change) {
+    // Trigger UI update
+    this.updateUI();
     
-    // Hotbar item (string)
-    if (typeof item === 'string') {
-      const def = this.getItemDef(item);
-      if (!def) return { valid: false, error: `Unknown item: ${item}` };
-      return { valid: true, def, type: 'hotbar' };
-    }
+    // Save to player data
+    this.saveToPlayer();
     
-    // Inventory item (object)
-    if (typeof item === 'object') {
-      if (!item.em || !item.name) {
-        return { valid: false, error: 'Missing required fields (em, name)' };
-      }
-      
-      const def = this.getItemDef(item.em);
-      if (!def) return { valid: false, error: `Unknown item: ${item.em}` };
-      
-      if (item.c <= 0) {
-        return { valid: false, error: 'Invalid stack count' };
-      }
-      
-      if (def.stackable && def.maxStack && item.c > def.maxStack) {
-        return { valid: false, error: `Stack exceeds maximum (${def.maxStack})` };
-      }
-      
-      return { valid: true, def, type: 'inventory' };
-    }
-    
-    return { valid: false, error: 'Invalid item type' };
+    console.log('[INVENTORY] Container change:', change.type, 'slot', change.slotIndex);
   },
   
-  // Get player inventory with validation
-  getPlayerInventory(player = S.p) {
-    if (!player) return { hotbar: [], bag: [], valid: false };
-    
-    const hotbar = playerHotbar(player) || [];
-    const bag = playerBag(player) || [];
-    
-    // Validate hotbar
-    const validHotbar = hotbar.map((item, index) => {
-      const validation = this.validateItem(item);
-      if (!validation.valid) {
-        console.warn(`[INVENTORY] Invalid hotbar item at index ${index}:`, validation.error);
-        return '';
+  // Centralized transfer operations
+  moveItem(fromContainer, fromSlot, toContainer, toSlot, quantity = null) {
+    if (fromContainer === toContainer) {
+      // Same container - use internal move
+      return fromContainer.moveItem(fromSlot, toSlot, quantity);
+    } else {
+      // Different containers - extract and add
+      const item = fromContainer.removeItem(fromSlot, quantity);
+      if (item) {
+        const result = toContainer.addItem(item, toSlot);
+        if (!result.success) {
+          // Rollback - put item back
+          fromContainer.addItem(item, fromSlot);
+          return false;
+        }
       }
-      return item;
-    });
+    }
+    return true;
+  },
+  
+  // Swap items between containers
+  swapItems(container1, slot1, container2, slot2) {
+    const item1 = container1.getSlot(slot1)?.getItem();
+    const item2 = container2.getSlot(slot2)?.getItem();
     
-    // Validate bag
-    const validBag = bag.filter((item, index) => {
-      const validation = this.validateItem(item);
-      if (!validation.valid) {
-        console.warn(`[INVENTORY] Invalid bag item at index ${index}:`, validation.error);
+    if (!item1 && !item2) return true; // Both empty
+    
+    // Remove both items
+    const removed1 = item1 ? container1.removeItem(slot1) : null;
+    const removed2 = item2 ? container2.removeItem(slot2) : null;
+    
+    // Add to opposite containers
+    if (removed1) {
+      const result1 = container2.addItem(removed1, slot2);
+      if (!result1.success) {
+        // Rollback
+        if (removed2) container2.addItem(removed2, slot2);
+        if (removed1) container1.addItem(removed1, slot1);
         return false;
       }
-      return true;
-    });
-    
-    return { hotbar: validHotbar, bag: validBag, valid: true };
-  },
-  
-  // Add item to inventory with proper stacking
-  addItem(itemDef, count = 1, player = S.p) {
-    if (!player || !itemDef) return false;
-    
-    const validation = this.validateItem(itemDef.icon || itemDef);
-    if (!validation.valid) {
-      console.error('[INVENTORY] Cannot add invalid item:', validation.error);
-      return false;
     }
     
-    const def = validation.def;
-    const icon = def.icon;
-    
-    if (def.stackable) {
-      // Try to stack with existing items
-      const bag = playerBag(player);
-      const existing = bag.find(item => item.em === icon);
-      
-      if (existing) {
-        const maxStack = def.maxStack || STACK_SIZES[def.name.toLowerCase()] || 20;
-        const canAdd = Math.min(count, maxStack - existing.c);
-        existing.c += canAdd;
-        return canAdd === count;
-      } else {
-        // Create new stack
-        if (bag.length < (player.invSize || 12)) {
-          bag.push({ em: icon, name: def.name, c: count });
-          return true;
+    if (removed2) {
+      const result2 = container1.addItem(removed2, slot1);
+      if (!result2.success) {
+        // Rollback
+        if (removed1) {
+          const rollback1 = container2.removeItem(slot2);
+          if (rollback1) container1.addItem(rollback1, slot1);
         }
-      }
-    } else {
-      // Non-stackable items go to hotbar first
-      const hotbar = playerHotbar(player);
-      for (let i = 1; i < hotbar.length; i++) {
-        if (!hotbar[i] || hotbar[i] === '') {
-          hotbar[i] = icon;
-          return true;
-        }
-      }
-      
-      // If hotbar is full, try inventory
-      const bag = playerBag(player);
-      if (bag.length < (player.invSize || 12)) {
-        bag.push({ em: icon, name: def.name, c: 1 });
-        return true;
+        if (removed2) container2.addItem(removed2, slot2);
+        return false;
       }
     }
     
-    return false; // Inventory full
+    return true;
   },
   
-  // Remove item from inventory
-  removeItem(itemType, count = 1, player = S.p) {
-    if (!player || !itemType) return false;
+  // Add item to appropriate container
+  addItem(itemType, quantity = 1) {
+    const item = new InventoryItem(itemType, quantity);
+    const definition = ITEM_REGISTRY[itemType];
     
-    const def = this.getItemDef(itemType);
-    if (!def) return false;
-    
-    const icon = def.icon;
-    
-    // Try hotbar first
-    const hotbar = playerHotbar(player);
-    for (let i = 1; i < hotbar.length; i++) {
-      if (hotbar[i] === icon) {
-        if (def.stackable && count > 1) {
-          // Move to inventory and handle stacking
-          const bag = playerBag(player);
-          const existing = bag.find(item => item.em === icon);
-          if (existing) {
-            const canRemove = Math.min(count, existing.c);
-            existing.c -= canRemove;
-            if (existing.c <= 0) {
-              bag.splice(bag.indexOf(existing), 1);
-            }
-            hotbar[i] = '';
-            return canRemove === count;
-          }
-        } else {
-          hotbar[i] = '';
-          return true;
-        }
+    // Non-stackable items go to hotbar first
+    if (!definition.stackable) {
+      const emptySlot = this.hotbar.findEmptySlot();
+      if (emptySlot > 0) { // Skip hand slot (0)
+        const result = this.hotbar.addItem(item, emptySlot);
+        return result.success;
       }
     }
     
     // Try inventory
-    const bag = playerBag(player);
-    const existing = bag.find(item => item.em === icon);
-    if (existing) {
-      const canRemove = Math.min(count, existing.c);
-      existing.c -= canRemove;
-      if (existing.c <= 0) {
-        bag.splice(bag.indexOf(existing), 1);
-      }
-      return canRemove === count;
+    const result = this.inventory.addItem(item);
+    return result.success;
+  },
+  
+  // Remove item from containers
+  removeItem(itemType, quantity = 1) {
+    // Try hotbar first
+    const hotbarSlot = this.hotbar.findSlotWithItem(itemType);
+    if (hotbarSlot !== -1) {
+      const removed = this.hotbar.removeItem(hotbarSlot, quantity);
+      if (removed) return true;
+    }
+    
+    // Try inventory
+    const inventorySlot = this.inventory.findSlotWithItem(itemType);
+    if (inventorySlot !== -1) {
+      const removed = this.inventory.removeItem(inventorySlot, quantity);
+      if (removed) return true;
     }
     
     return false;
   },
   
-  // Get item count
-  getItemCount(itemType, player = S.p) {
-    if (!player || !itemType) return 0;
-    
-    const def = this.getItemDef(itemType);
-    if (!def) return 0;
-    
-    const icon = def.icon;
+  // Get item count across both containers
+  getItemCount(itemType) {
     let count = 0;
     
-    // Check hotbar
-    const hotbar = playerHotbar(player);
-    hotbar.forEach(item => {
-      if (item === icon) count += 1;
+    // Count in hotbar
+    this.hotbar.getAllItems().forEach(item => {
+      if (item.itemType === itemType) count += item.quantity;
     });
     
-    // Check inventory
-    const bag = playerBag(player);
-    bag.forEach(item => {
-      if (item.em === icon) count += item.c || 1;
+    // Count in inventory
+    this.inventory.getAllItems().forEach(item => {
+      if (item.itemType === itemType) count += item.quantity;
     });
     
     return count;
   },
   
-  // Clean up invalid items
-  cleanupInventory(player = S.p) {
-    if (!player) return false;
+  // Update UI (centralized)
+  updateUI() {
+    this.updateHotbarUI();
+    this.updateInventoryUI();
+  },
+  
+  // Update hotbar UI
+  updateHotbarUI() {
+    document.querySelectorAll('.hs').forEach((slotElement, index) => {
+      const slot = this.hotbar.getSlot(index);
+      const item = slot?.getItem();
+      
+      let content = '';
+      if (item) {
+        content = item.icon;
+        if (item.quantity > 1) {
+          content += `<span class="hc">${item.quantity}</span>`;
+        }
+      } else if (index === 0) {
+        content = '✊'; // Hand slot
+      }
+      
+      const numElement = slotElement.querySelector('.hn');
+      if (numElement) {
+        slotElement.innerHTML = numElement.outerHTML + content;
+      } else {
+        slotElement.innerHTML = content;
+      }
+      
+      slotElement.className = 'hs' + (S.p?.hsel === index ? ' active' : '');
+    });
+  },
+  
+  // Update inventory UI
+  updateInventoryUI() {
+    const grid = document.getElementById('igrid');
+    if (!grid) return;
     
-    const inventory = this.getPlayerInventory(player);
-    if (!inventory.valid) return false;
+    grid.innerHTML = '';
+    const invSize = S.p?.invSize || 12;
     
-    // Update with cleaned inventory
-    player.hotbar = inventory.hotbar;
-    player.bag = inventory.bag;
+    // Render inventory slots
+    for (let i = 0; i < invSize; i++) {
+      const slot = this.inventory.getSlot(i);
+      const item = slot?.getItem();
+      
+      const slotElement = document.createElement('div');
+      slotElement.className = 'is';
+      slotElement.draggable = true;
+      
+      if (item) {
+        slotElement.innerHTML = `${item.icon}<span class="ic">${item.quantity > 1 ? item.quantity : ''}</span>`;
+        slotElement.title = `${item.name} (from inventory)`;
+      }
+      
+      // Set up drag events
+      this.setupSlotDragEvents(slotElement, 'inventory', i);
+      
+      grid.appendChild(slotElement);
+    }
     
-    console.log('[INVENTORY] Cleaned up invalid items');
+    // Add resource stacks from player resources
+    this.addResourceStacksToUI(grid);
+  },
+  
+  // Add resource stacks to UI
+  addResourceStacksToUI(grid) {
+    const res = playerRes(S.p);
+    const resourceIcons = { wood: '🪵', stone: '🪨', food: '🌿', metal: '⚙️' };
+    
+    Object.entries(res).forEach(([type, amount]) => {
+      if (amount <= 0) return;
+      
+      const icon = resourceIcons[type];
+      if (!icon) return;
+      
+      // Check if already in inventory
+      const existingInInventory = this.inventory.getAllItems().some(item => item.itemType === type);
+      if (existingInInventory) return;
+      
+      const stackSize = STACK_SIZES[type] || 20;
+      const stacksNeeded = Math.ceil(amount / stackSize);
+      
+      for (let i = 0; i < stacksNeeded && grid.children.length < (S.p?.invSize || 12); i++) {
+        const stackAmount = Math.min(stackSize, amount - (i * stackSize));
+        
+        const slotElement = document.createElement('div');
+        slotElement.className = 'is';
+        slotElement.draggable = true;
+        slotElement.innerHTML = `${icon}<span class="ic">${stackAmount}</span>`;
+        slotElement.title = `${type.charAt(0).toUpperCase() + type.slice(1)} (from resources)`;
+        
+        // Set up drag events for resource
+        this.setupResourceDragEvents(slotElement, type, stackAmount);
+        
+        grid.appendChild(slotElement);
+      }
+    });
+  },
+  
+  // Setup drag events for slots
+  setupSlotDragEvents(element, containerType, slotIndex) {
+    element.addEventListener('dragstart', (e) => {
+      const container = containerType === 'hotbar' ? this.hotbar : this.inventory;
+      const slot = container.getSlot(slotIndex);
+      const item = slot?.getItem();
+      
+      if (!item || (containerType === 'hotbar' && slotIndex === 0)) {
+        e.preventDefault();
+        return;
+      }
+      
+      DRAG_CONTROLLER.startDrag(containerType, slotIndex, item, e.target);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    
+    element.addEventListener('dragend', () => {
+      DRAG_CONTROLLER.endDrag();
+    });
+    
+    element.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      element.classList.add('dragging');
+    });
+    
+    element.addEventListener('dragleave', () => {
+      element.classList.remove('dragging');
+    });
+    
+    element.addEventListener('drop', (e) => {
+      e.preventDefault();
+      element.classList.remove('dragging');
+      DRAG_CONTROLLER.handleDrop(containerType, slotIndex);
+    });
+  },
+  
+  // Setup drag events for resources
+  setupResourceDragEvents(element, resourceType, amount) {
+    element.addEventListener('dragstart', (e) => {
+      const item = new InventoryItem(resourceType, amount);
+      DRAG_CONTROLLER.startDrag('resource', resourceType, item, e.target);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    
+    element.addEventListener('dragend', () => {
+      DRAG_CONTROLLER.endDrag();
+    });
+    
+    element.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      element.classList.add('dragging');
+    });
+    
+    element.addEventListener('dragleave', () => {
+      element.classList.remove('dragging');
+    });
+    
+    element.addEventListener('drop', (e) => {
+      e.preventDefault();
+      element.classList.remove('dragging');
+      // Resources can't receive drops
+    });
+  }
+};
+
+// Drag controller - handles drag state without mutating inventory
+const DRAG_CONTROLLER = {
+  isDragging: false,
+  sourceContainer: null,
+  sourceSlot: null,
+  sourceItem: null,
+  sourceElement: null,
+  
+  startDrag(containerType, slotIndex, item, element) {
+    if (!item) return false;
+    
+    this.isDragging = true;
+    this.sourceContainer = containerType;
+    this.sourceSlot = slotIndex;
+    this.sourceItem = item.clone(); // Deep clone for safety
+    this.sourceElement = element;
+    
+    element.classList.add('dragging');
+    console.log('[DRAG] Started dragging', containerType, slotIndex, item.itemType);
     return true;
+  },
+  
+  endDrag() {
+    if (this.sourceElement) {
+      this.sourceElement.classList.remove('dragging');
+    }
+    
+    this.isDragging = false;
+    this.sourceContainer = null;
+    this.sourceSlot = null;
+    this.sourceItem = null;
+    this.sourceElement = null;
+    
+    // Clean up any remaining drag states
+    document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+  },
+  
+  handleDrop(targetContainer, targetSlot) {
+    if (!this.isDragging || !this.sourceItem) {
+      console.warn('[DRAG] No active drag operation');
+      return false;
+    }
+    
+    // Prevent dropping on hand slot
+    if (targetContainer === 'hotbar' && targetSlot === 0) {
+      glog('Cannot drop on hand slot!', 'warn');
+      return false;
+    }
+    
+    // Prevent dropping on same location
+    if (this.sourceContainer === targetContainer && this.sourceSlot === targetSlot) {
+      return false;
+    }
+    
+    try {
+      let success = false;
+      
+      if (this.sourceContainer === 'resource') {
+        // Dragging from resources
+        success = this.handleResourceDrop(targetContainer, targetSlot);
+      } else {
+        // Dragging from inventory/hotbar
+        success = this.handleInventoryDrop(targetContainer, targetSlot);
+      }
+      
+      if (success) {
+        console.log(`[DRAG] ${this.sourceContainer}[${this.sourceSlot}] -> ${targetContainer}[${targetSlot}]`);
+      }
+      
+      return success;
+      
+    } catch (error) {
+      console.error('[DRAG] Drop error:', error);
+      glog('Failed to move item!', 'danger');
+      return false;
+    }
+  },
+  
+  handleResourceDrop(targetContainer, targetSlot) {
+    const resourceType = this.sourceSlot; // For resources, slot is the resource type
+    const amount = this.sourceItem.quantity;
+    
+    // Deduct from player resources
+    if (!dropResources(S.p, resourceType, amount)) {
+      glog('Not enough resources!', 'warn');
+      return false;
+    }
+    
+    // Add to target container
+    const success = INVENTORY_MANAGER.addItem(resourceType, amount);
+    if (!success) {
+      // Rollback
+      addResource(S.p, resourceType, amount);
+      glog('No space available!', 'warn');
+      return false;
+    }
+    
+    return true;
+  },
+  
+  handleInventoryDrop(targetContainer, targetSlot) {
+    const sourceContainer = this.sourceContainer === 'hotbar' ? INVENTORY_MANAGER.hotbar : INVENTORY_MANAGER.inventory;
+    const targetContainerObj = targetContainer === 'hotbar' ? INVENTORY_MANAGER.hotbar : INVENTORY_MANAGER.inventory;
+    
+    return INVENTORY_MANAGER.moveItem(sourceContainer, this.sourceSlot, targetContainerObj, targetSlot);
   }
 };
 
@@ -2336,120 +2948,79 @@ const NETWORK_SAFETY = {
 // Initialize safety systems
 ERROR_HANDLER.init();
 
-function updInv(){
-  const grid=document.getElementById('igrid');grid.innerHTML='';
-  const invSize=S.p.invSize||12;
-  const bag=playerBag(S.p);
-  const res=playerRes(S.p);
-  let invIndex=0;
+// Legacy functions updated to work with new inventory system
+// Simple hotbar-first inventory system
+function updateHotbar(){
+  const hotbar = playerHotbar(S.p);
+  const res = playerRes(S.p);
   
-  // Add items from bag first
-  bag.forEach((item,i)=>{
-    if(invIndex>=invSize)return;
-    const sl=document.createElement('div');sl.className='is';
-    sl.draggable=true;
-    sl.innerHTML=`${item.em}<span class="ic">${item.c>1?item.c:''}</span>`;
-    sl.title=`${item.name} (from inventory)`;
+  // Update each hotbar slot
+  document.querySelectorAll('.hs').forEach((slot, i) => {
+    const item = hotbar[i];
     
-    // Add drag events using new system
-    sl.addEventListener('dragstart',(e)=>{
-      if (!DRAG_DROP_SYSTEM.startDrag('inventory', i, item, sl)) {
-        e.preventDefault();
-        return;
-      }
-      e.dataTransfer.effectAllowed='move';
-    });
-    
-    sl.addEventListener('dragend',()=>{
-      DRAG_DROP_SYSTEM.endDrag();
-    });
-    
-    sl.addEventListener('dragover',(e)=>{
-      e.preventDefault();
-      sl.classList.add('dragging');
-    });
-    
-    sl.addEventListener('dragleave',()=>{
-      sl.classList.remove('dragging');
-    });
-    
-    sl.addEventListener('drop',(e)=>{
-      e.preventDefault();
-      sl.classList.remove('dragging');
-      DRAG_DROP_SYSTEM.executeDrop('inventory', i);
-    });
-    
-    grid.appendChild(sl);
-    invIndex++;
-  });
-  
-  // Add resources from res as stacks (only if not already in bag)
-  const resourceIcons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
-  Object.entries(res).forEach(([type,amount])=>{
-    if(invIndex>=invSize || amount<=0)return;
-    const icon=resourceIcons[type];
-    if(icon){
-      // Check if this resource type is already in bag
-      const itemName=type.charAt(0).toUpperCase()+type.slice(1);
-      const existingInBag=bag.find(item=>item.name===itemName);
+    if (i === 0) {
+      // Hand slot - always show hand
+      slot.innerHTML = `<span class="hn">${i + 1}</span>${item || '✊'}`;
+    } else if (item && item !== '') {
+      // Check if this is a resource and show count
+      let displayContent = `<span class="hn">${i + 1}</span>${item}`;
       
-      if(!existingInBag){
-        const stackSize=STACK_SIZES[type]||STACK_SIZES.wood;
-        const stacksNeeded=Math.ceil(amount/stackSize);
-        
-        for(let i=0;i<stacksNeeded && invIndex<invSize;i++){
-          const stackAmount=Math.min(stackSize, amount - (i*stackSize));
-          const sl=document.createElement('div');sl.className='is';
-          sl.draggable=true;
-          sl.innerHTML=`${icon}<span class="ic">${stackAmount}</span>`;
-          sl.title=`${itemName} (from resources)`;
-          
-          // Add drag events for resource stacks using new system
-          const resourceItem = {em:icon,name:itemName,c:stackAmount};
-          sl.addEventListener('dragstart',(e)=>{
-            if (!DRAG_DROP_SYSTEM.startDrag('inventory', invIndex, resourceItem, sl)) {
-              e.preventDefault();
-              return;
-            }
-            e.dataTransfer.effectAllowed='move';
-          });
-          
-          sl.addEventListener('dragend',()=>{
-            DRAG_DROP_SYSTEM.endDrag();
-          });
-          
-          sl.addEventListener('dragover',(e)=>{
-            e.preventDefault();
-            sl.classList.add('dragging');
-          });
-          
-          sl.addEventListener('dragleave',()=>{
-            sl.classList.remove('dragging');
-          });
-          
-          sl.addEventListener('drop',(e)=>{
-            e.preventDefault();
-            sl.classList.remove('dragging');
-            DRAG_DROP_SYSTEM.executeDrop('inventory', invIndex);
-          });
-          
-          grid.appendChild(sl);
-          invIndex++;
-        }
+      // Show resource count if this slot contains a resource
+      if (item === '🪵' && res.wood > 0) {
+        displayContent += `<span class="hc">${res.wood}</span>`;
+      } else if (item === '🪨' && res.stone > 0) {
+        displayContent += `<span class="hc">${res.stone}</span>`;
+      } else if (item === '🌿' && res.food > 0) {
+        displayContent += `<span class="hc">${res.food}</span>`;
+      } else if (item === '⚙️' && res.metal > 0) {
+        displayContent += `<span class="hc">${res.metal}</span>`;
+      }
+      
+      slot.innerHTML = displayContent;
+    } else {
+      // Empty slot
+      slot.innerHTML = `<span class="hn">${i + 1}</span>`;
+    }
+    
+    // Update active selection
+    slot.classList.toggle('active', i === (S.p.hsel || 0));
+  });
+}
+
+// Alias for backward compatibility - MUST be defined early
+const updHotbar = updateHotbar;
+
+// Simple inventory UI - show resources only
+function updInv(){
+  const grid = document.getElementById('igrid');
+  if (!grid) return;
+  
+  grid.innerHTML = '';
+  const res = playerRes(S.p);
+  const resourceIcons = { wood: '🪵', stone: '🪨', food: '🌿', metal: '⚙️' };
+  
+  // Show all resources with counts
+  Object.entries(res).forEach(([type, amount]) => {
+    if (amount > 0) {
+      const icon = resourceIcons[type];
+      if (icon) {
+        const slot = document.createElement('div');
+        slot.className = 'is';
+        slot.innerHTML = `${icon}<span class="ic">${amount}</span>`;
+        slot.title = `${type.charAt(0).toUpperCase() + type.slice(1)} (${amount})`;
+        grid.appendChild(slot);
       }
     }
   });
   
-  // Fill remaining slots
-  while(invIndex<invSize){
-    const sl=document.createElement('div');sl.className='is';
-    grid.appendChild(sl);
-    invIndex++;
+  // Fill remaining empty slots (optional - can be removed for cleaner UI)
+  const currentSlots = grid.children.length;
+  const maxSlots = 12;
+  for (let i = currentSlots; i < maxSlots; i++) {
+    const emptySlot = document.createElement('div');
+    emptySlot.className = 'is';
+    grid.appendChild(emptySlot);
   }
-  
-  // Update grid columns based on inventory size
-  const cols=Math.ceil(Math.sqrt(invSize));
-  grid.style.gridTemplateColumns=`repeat(${cols}, 1fr)`;
 }
 
 // ═══ MISC ═══
@@ -2468,6 +3039,12 @@ function gainXP(n,player=S.p){
 }
 
 function upgradeSkill(skill,player=S.p){
+  // Safety guard for player state
+  if (!player || typeof player.skillPoints === 'undefined') {
+    console.error('[SKILL] Player not initialized or missing skillPoints');
+    return;
+  }
+  
   if(player.skillPoints<=0){
     glog('No skill points available!','warn');
     return;
@@ -2623,12 +3200,12 @@ function dropItemMenu(){
 function respawn(){document.getElementById('dscr').style.display='none';initAndStart();}
 
 // ═══ PANELS ═══
-const PSTATE={craft:false,inv:false,res:false,skills:false};
+const PSTATE={craft:false,skills:false};
 function togglePanel(n){PSTATE[n]=!PSTATE[n];syncPanels();}
 function closePanel(n){PSTATE[n]=false;syncPanels();}
 function syncPanels(){
-  const map={craft:'fp-craft',inv:'fp-inv',res:'fp-res',skills:'fp-skills'};
-  const bm={craft:'pb-craft',inv:'pb-inv',res:'pb-res',skills:'pb-skills'};
+  const map={craft:'fp-craft',skills:'fp-skills'};
+  const bm={craft:'pb-craft',skills:'pb-skills'};
   for(const[n,eid]of Object.entries(map)){
     document.getElementById(eid)?.classList.toggle('open',PSTATE[n]);
     document.getElementById(bm[n])?.classList.toggle('on',PSTATE[n]);
@@ -2696,198 +3273,8 @@ document.getElementById('canvas').addEventListener('wheel', (e) => {
   selectHotbarSlot(newSlot, 'mousewheel');
 }, { passive: false });
 
-// Improved drag and drop system with validation and error handling
-const DRAG_DROP_SYSTEM = {
-  // State management
-  state: {
-    isDragging: false,
-    source: null, // {type: 'hotbar'|'inventory', index: number, item: any}
-    target: null,
-    dragElement: null
-  },
-  
-  // Validation helpers
-  validateItem(item) {
-    if (!item) return false;
-    if (typeof item === 'string') {
-      return item.length > 0; // Hotbar item (emoji)
-    }
-    if (typeof item === 'object') {
-      return item.em && item.name && (item.c > 0); // Inventory item
-    }
-    return false;
-  },
-  
-  // Start drag operation
-  startDrag(type, index, item, element) {
-    if (!this.validateItem(item)) {
-      console.warn('[DRAG_DROP] Invalid item data:', item);
-      return false;
-    }
-    
-    this.state.isDragging = true;
-    this.state.source = { type, index, item: this.cloneItem(item) };
-    this.state.dragElement = element;
-    
-    if (element) element.classList.add('dragging');
-    return true;
-  },
-  
-  // End drag operation
-  endDrag() {
-    if (this.state.dragElement) {
-      this.state.dragElement.classList.remove('dragging');
-    }
-    
-    this.state.isDragging = false;
-    this.state.source = null;
-    this.state.target = null;
-    this.state.dragElement = null;
-    
-    // Clean up any remaining dragging states
-    document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
-  },
-  
-  // Clone item to avoid reference mutations
-  cloneItem(item) {
-    if (typeof item === 'string') return item;
-    if (typeof item === 'object') return { ...item };
-    return null;
-  },
-  
-  // Get item from source
-  getItemFromSource(type, index) {
-    if (type === 'hotbar') {
-      const hotbar = playerHotbar(S.p);
-      return hotbar[index] || '';
-    }
-    if (type === 'inventory') {
-      const bag = playerBag(S.p);
-      return bag[index] || null;
-    }
-    return null;
-  },
-  
-  // Set item at destination
-  setItemAtDestination(type, index, item) {
-    if (type === 'hotbar') {
-      const hotbar = playerHotbar(S.p);
-      hotbar[index] = item || '';
-      S.p.hotbar = hotbar;
-    }
-    if (type === 'inventory') {
-      const bag = playerBag(S.p);
-      if (item) {
-        bag[index] = item;
-      } else {
-        bag.splice(index, 1);
-      }
-    }
-  },
-  
-  // Remove item from source
-  removeItemFromSource(type, index) {
-    if (type === 'hotbar') {
-      const hotbar = playerHotbar(S.p);
-      hotbar[index] = '';
-      S.p.hotbar = hotbar;
-    }
-    if (type === 'inventory') {
-      const bag = playerBag(S.p);
-      bag.splice(index, 1);
-    }
-  },
-  
-  // Execute drop operation
-  executeDrop(targetType, targetIndex) {
-    if (!this.state.isDragging || !this.state.source) {
-      console.warn('[DRAG_DROP] No active drag operation');
-      return false;
-    }
-    
-    const { type: sourceType, index: sourceIndex, item: sourceItem } = this.state.source;
-    
-    // Prevent dropping on hand slot (index 0)
-    if (targetType === 'hotbar' && targetIndex === 0) {
-      glog('Cannot drop on hand slot!', 'warn');
-      return false;
-    }
-    
-    // Prevent dragging from hand slot
-    if (sourceType === 'hotbar' && sourceIndex === 0) {
-      glog('Cannot drag from hand slot!', 'warn');
-      return false;
-    }
-    
-    // Prevent dropping on same location
-    if (sourceType === targetType && sourceIndex === targetIndex) {
-      return false;
-    }
-    
-    // Get target item
-    const targetItem = this.getItemFromSource(targetType, targetIndex);
-    
-    // Handle different transfer scenarios
-    try {
-      if (sourceType === 'hotbar' && targetType === 'hotbar') {
-        // Hotbar to hotbar swap
-        this.setItemAtDestination(targetType, targetIndex, sourceItem);
-        this.setItemAtDestination(sourceType, sourceIndex, targetItem);
-      } else if (sourceType === 'hotbar' && targetType === 'inventory') {
-        // Hotbar to inventory
-        this.setItemAtDestination(targetType, targetIndex, this.hotbarToInventoryItem(sourceItem));
-        this.removeItemFromSource(sourceType, sourceIndex);
-      } else if (sourceType === 'inventory' && targetType === 'hotbar') {
-        // Inventory to hotbar
-        this.setItemAtDestination(targetType, targetIndex, sourceItem.em);
-        this.removeItemFromSource(sourceType, sourceIndex);
-      } else if (sourceType === 'inventory' && targetType === 'inventory') {
-        // Inventory swap
-        this.setItemAtDestination(targetType, targetIndex, sourceItem);
-        this.setItemAtDestination(sourceType, sourceIndex, targetItem);
-      }
-      
-      // Update UI
-      this.updateUI();
-      console.log(`[DRAG_DROP] ${sourceType}[${sourceIndex}] -> ${targetType}[${targetIndex}]`);
-      return true;
-      
-    } catch (error) {
-      console.error('[DRAG_DROP] Error during drop:', error);
-      glog('Failed to move item!', 'danger');
-      return false;
-    }
-  },
-  
-  // Convert hotbar item to inventory item format
-  hotbarToInventoryItem(hotbarItem) {
-    if (!hotbarItem || hotbarItem === '') return null;
-    
-    const icons = {
-      '🪵': 'Wood', '🪨': 'Stone', '🌿': 'Food', '⚙️': 'Metal',
-      '🪓': 'Hatchet', '⛏': 'Pickaxe', '🏹': 'Bow', '🩹': 'Bandage',
-      '🕯': 'Torch', '🧱': 'Wall', '🪤': 'Spikes'
-    };
-    
-    const name = icons[hotbarItem] || 'Item';
-    return { em: hotbarItem, name, c: 1 };
-  },
-  
-  // Update UI after drag operation
-  updateUI() {
-    try {
-      updInv();
-      updHotbar();
-    } catch (error) {
-      console.error('[DRAG_DROP] UI update failed:', error);
-    }
-  }
-};
-
-// Legacy compatibility
-document.addEventListener('dragend', () => {
-  DRAG_DROP_SYSTEM.endDrag();
-});
+// Remove old drag drop system - replaced by DRAG_CONTROLLER
+// Remove old inventory system - replaced by INVENTORY_MANAGER
 
 // Remove canvas click hotbar selection - only allow keyboard, wheel, and direct UI clicks
 // The previous implementation caused random hotbar slot switching when clicking in game world
@@ -2907,6 +3294,7 @@ function handleCanvasClick(){
 }
 
 document.getElementById('canvas').addEventListener('click',handleCanvasClick);
+// Update hotbar drag handlers to use new system
 document.querySelectorAll('.hs').forEach((slot,i)=>{
   // Direct click for slot selection
   slot.addEventListener('click',(e)=>{
@@ -2922,39 +3310,8 @@ document.querySelectorAll('.hs').forEach((slot,i)=>{
     }
   });
   
-  slot.addEventListener('dragstart',(e)=>{
-    if(i===0)return; // Can't drag hand slot
-    
-    const item = S.p.hotbar[i];
-    if (!DRAG_DROP_SYSTEM.startDrag('hotbar', i, item, slot)) {
-      e.preventDefault();
-      return;
-    }
-    
-    e.dataTransfer.effectAllowed='move';
-  });
-  
-  slot.addEventListener('dragend',()=>{
-    DRAG_DROP_SYSTEM.endDrag();
-  });
-  
-  slot.addEventListener('dragover',(e)=>{
-    e.preventDefault();
-    if(i!==0){ // Can't drop on hand slot
-      slot.classList.add('dragging');
-    }
-  });
-  
-  slot.addEventListener('dragleave',()=>{
-    slot.classList.remove('dragging');
-  });
-  
-  slot.addEventListener('drop',(e)=>{
-    e.preventDefault();
-    slot.classList.remove('dragging');
-    
-    DRAG_DROP_SYSTEM.executeDrop('hotbar', i);
-  });
+  // Remove old drag handlers - will be set up by INVENTORY_MANAGER
+  // The new system will handle all drag events through setupSlotDragEvents
 });
 
 // Update inventory drag handlers in updInv function
@@ -2986,22 +3343,127 @@ function showGameUi(){
   document.getElementById('pbtns').style.display='flex';
 }
 
-function initAndStart(){
-  NET.mapSent=false;NET.tileDirty=[];
-  S=mkState();S.map=genMap();
+// Compatibility wrapper for new inventory system
+function initInventorySystem(){
+  console.log('[BOOT] Initializing inventory system');
+  
+  try {
+    if (typeof INVENTORY_MANAGER !== 'undefined' && INVENTORY_MANAGER.init) {
+      INVENTORY_MANAGER.init(S.p);
+      console.log('[BOOT] Inventory system initialized successfully');
+    } else {
+      console.error('[BOOT] INVENTORY_MANAGER not available');
+      // Fallback to basic initialization
+      if (!S.p.hotbar) S.p.hotbar = ['✊', '', '', '', '', '', '', '', ''];
+      if (!S.p.bag) S.p.bag = [];
+    }
+  } catch (error) {
+    console.error('[BOOT] Failed to initialize inventory system:', error);
+    // Basic fallback
+    if (!S.p.hotbar) S.p.hotbar = ['✊', '', '', '', '', '', '', '', ''];
+    if (!S.p.bag) S.p.bag = [];
+  }
+}
+
+// Initialize player state with ALL required properties
+function initPlayerState(player) {
+  if (!player.skills) {
+    player.skills = {
+      health: 0,
+      speed: 0,
+      strength: 0,
+      crafting: 0,
+      gathering: 0,
+      perks: []
+    };
+  }
+  if (typeof player.skillPoints === 'undefined') {
+    player.skillPoints = 0;
+  }
+  if (!player.hotbar) {
+    player.hotbar = ['✊', '', '', '', '', '', '', '', ''];
+  }
+  if (!player.hsel && player.hsel !== 0) {
+    player.hsel = 0;
+  }
+}
+
+function initGame(){
+  console.log('[BOOT] Initializing game systems');
+  
+  // Initialize game state
+  S=mkState();
+  S.map=genMap();
+  
+  // Initialize player
   S.p.name=localName('HOST');
-  const sp=findSpawn();S.p.x=sp.x;S.p.y=sp.y;
-  if(NET.mode==='host'&&NET.connected)S.p2=clonePlayer(S.p,NET.guestName);
-  if(S.p2){const sp2=findSafeNear(S.p.x,S.p.y);S.p2.x=sp2.x;S.p2.y=sp2.y;S.remotePlayer=S.p2;}
-  // NPC init removed
+  const sp=findSpawn();
+  S.p.x=sp.x;
+  S.p.y=sp.y;
+  
+  // Initialize player state BEFORE UI systems
+  initPlayerState(S.p);
+  
+  // Initialize network players
+  if(NET.mode==='host'&&NET.connected){
+    S.p2=clonePlayer(S.p,NET.guestName);
+  }
+  if(S.p2){
+    const sp2=findSafeNear(S.p.x,S.p.y);
+    S.p2.x=sp2.x;
+    S.p2.y=sp2.y;
+    S.remotePlayer=S.p2;
+  }
+  
+  console.log('[BOOT] Game state initialized');
+}
+
+function initAndStart(){
+  console.log('[BOOT] Starting game initialization');
+  
+  // Validate all required functions exist
+  const requiredFunctions = ['initGame', 'initInventorySystem', 'showGameUi', 'resizeCanvases', 'startWave', 'updInv', 'updHotbar', 'updCraft', 'startLoop'];
+  for (const funcName of requiredFunctions) {
+    if (typeof window[funcName] !== 'function') {
+      console.error(`[BOOT] Missing required function: ${funcName}`);
+      glog(`Critical error: Missing ${funcName}. Please refresh the page.`, 'danger');
+      return;
+    }
+  }
+  
+  console.log('[BOOT] All required functions validated');
+  
+  // Initialize core game systems first
+  initGame();
+  
+  // Initialize new inventory system
+  initInventorySystem();
+  
+  // Initialize network
+  NET.mapSent=false;
+  NET.tileDirty=[];
+  
+  // Initialize UI and start game
+  showGameUi();
   resizeCanvases();
-  const mc=document.getElementById('minimap');mc.style.display='block';
+  
+  const mc=document.getElementById('minimap');
+  mc.style.display='block';
+  
   startWave(1);
-  updInv();updHotbar();updCraft();
+  updInv();
+  updHotbar();
+  updCraft();
+  
+  // Start game loop last
+  console.log('[BOOT] Starting game loop');
   startLoop();
+  
   glog('Welcome to Wasteland. Survive.','good');
   glog('E=gather  SPACE=attack  F=use item','');
-  glog('C=craft  I=inventory  R=resources  T=trade','');
+  glog('C=craft  K=skills  R=resources  T=trade','');
+  
+  console.log('[BOOT] Game started successfully');
 }
 
 function startGame(){
