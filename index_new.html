@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wasteland Survival</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d1208;--panel:#1a2010;--border:#2a3a20;--text:#e0e0c0;--dim:#808060;
+  --green:#4ade80;--red:#f87171;--orange:#fb923c;--blue:#60a5fa;--yellow:#fbbf24;--gdim:#2a3a20;
+}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;overflow:hidden;user-select:none;}
+#canvas{position:fixed;inset:0;width:100%;height:100%;background:#0d1208;cursor:crosshair;}
+/* HUD */
+#hud{position:fixed;top:12px;left:12px;display:none;flex-direction:column;gap:6px;pointer-events:none;z-index:10;}
+.hbox{background:#0d1208cc;border:1px solid var(--border);backdrop-filter:blur(6px);border-radius:3px;padding:6px 10px;}
+.htime{font-family:'Russo One',sans-serif;font-size:22px;color:var(--green);text-shadow:0 0 10px #4ade8055;line-height:1;}
+.hmeta{font-size:10px;color:var(--dim);letter-spacing:1px;line-height:1.6;}
+.hphase{color:var(--yellow);}
+.hthreat{color:var(--red);font-size:11px;letter-spacing:1px;}
+.hrow{display:flex;align-items:center;gap:8px;}
+#hweather{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--blue);}
+#hbars{display:flex;flex-direction:column;gap:4px;}
+.sb{display:flex;align-items:center;gap:6px;}
+.sbico{font-size:11px;width:14px;}
+.sbtrack{width:110px;height:6px;background:#1a2010;border:1px solid var(--border);border-radius:1px;overflow:hidden;}
+.sbfill{height:100%;border-radius:1px;transition:width .3s ease;}
+.fhp{background:var(--red);}.fhu{background:var(--orange);}.ftm{background:var(--blue);}.fxp{background:var(--yellow);}
+.sbval{font-size:10px;color:var(--dim);width:24px;text-align:right;}
+/* HOTBAR */
+#hotbar{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);display:none;gap:6px;background:#0d1208cc;border:1px solid var(--border);padding:6px;border-radius:3px;backdrop-filter:blur(4px);z-index:10;}
+.hs{width:46px;height:46px;background:#111510;border:1px solid var(--border);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;cursor:pointer;transition:border-color .1s;user-select:none;}
+.hs.active{border-color:var(--green);box-shadow:0 0 8px rgba(74,222,128,0.3);}
+.hs:hover{border-color:var(--blue);}
+.hs.dragging{opacity:0.5;border-color:var(--yellow);}
+.hn{position:absolute;top:2px;left:2px;font-size:8px;color:var(--dim);pointer-events:none;}
+.hc{position:absolute;bottom:2px;right:2px;font-size:10px;color:var(--text);background:var(--bg);padding:1px 3px;border-radius:2px;pointer-events:none;}
+/* PANEL BUTTONS */
+#pbtns{position:fixed;bottom:14px;left:12px;display:none;gap:5px;z-index:10;}
+.pbtn{background:#0d1208cc;border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;padding:5px 10px;border-radius:3px;cursor:pointer;backdrop-filter:blur(6px);transition:all .15s;letter-spacing:1px;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.pbtn .pk{font-size:8px;color:var(--dim);}
+.pbtn:hover,.pbtn.on{background:var(--gdim);border-color:var(--green);color:var(--green);}
+/* PANELS */
+.fp{position:fixed;z-index:20;background:var(--panel);border:1px solid var(--border);backdrop-filter:blur(14px);border-radius:4px;padding:12px;min-width:190px;display:none;flex-direction:column;gap:7px;box-shadow:0 4px 32px #00000099;}
+.fp.open{display:flex;}
+#fp-craft{left:12px;top:50%;transform:translateY(-50%);}
+#fp-inv{right:12px;top:50%;transform:translateY(-50%);}
+#fp-skills{left:50%;top:50%;transform:translate(-50%,-50%);}
+#fp-trade{left:50%;top:50%;transform:translate(-50%,-50%);min-width:250px;}
+.fp-title{font-size:14px;color:var(--green);text-align:center;border-bottom:1px solid var(--border);padding-bottom:4px;margin-bottom:4px;}
+.cbtn{background:var(--gdim);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;padding:4px 8px;border-radius:2px;cursor:pointer;transition:all .15s;}
+.cbtn:hover:not(:disabled){background:var(--border);color:var(--green);}
+.cbtn:disabled{opacity:0.5;cursor:not-allowed;}
+.cc{color:var(--yellow);font-size:9px;}
+#igrid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.is{width:40px;height:40px;background:#111510;border:1px solid var(--border);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;cursor:pointer;}
+.is:hover{border-color:var(--blue);}
+.is.dragging{opacity:0.5;border-color:var(--yellow);}
+.ic{position:absolute;bottom:1px;right:1px;font-size:8px;color:var(--text);background:var(--bg);padding:1px;border-radius:1px;}
+/* VIRTUAL JOYSTICK */
+#virtual-joystick{position:fixed;bottom:120px;left:20px;z-index:100;width:150px;height:150px;}
+.joystick-base{width:100px;height:100px;background:rgba(0,0,0,0.5);border:2px solid var(--border);border-radius:50%;position:relative;}
+.joystick-handle{width:40px;height:40px;background:var(--green);border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);transition:all 0.1s;}
+.joystick-buttons{position:absolute;bottom:10px;right:10px;display:flex;flex-direction:column;gap:5px;}
+.joystick-btn{width:50px;height:50px;background:var(--panel);border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:16px;font-weight:bold;backdrop-filter:blur(6px);}
+.joystick-btn:active{background:var(--gdim);border-color:var(--green);}
+/* SPLASH */
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;}
+#splash h1{font-family:'Russo One',sans-serif;font-size:48px;color:var(--green);text-shadow:0 0 20px #4ade8055;margin-bottom:8px;}
+#splash p{font-size:14px;color:var(--dim);margin-bottom:24px;}
+.cgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:24px;}
+.cgrid div{font-size:11px;color:var(--dim);}
+.cgrid span{color:var(--text);font-weight:bold;}
+#sbtn{background:var(--green);color:var(--bg);border:none;font-family:'Russo One',sans-serif;font-size:18px;padding:12px 24px;border-radius:4px;cursor:pointer;transition:all .15s;}
+#sbtn:hover{background:#22c55e;transform:scale(1.05);}
+/* MULTIPLAYER */
+#multiplayer{position:fixed;inset:0;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:90;}
+#multiplayer h2{font-family:'Russo One',sans-serif;font-size:32px;color:var(--green);margin-bottom:16px;}
+#multiplayer p{font-size:12px;color:var(--dim);margin-bottom:24px;text-align:center;max-width:400px;}
+#multiplayer input{background:var(--panel);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:14px;padding:8px 12px;border-radius:3px;margin-bottom:8px;width:250px;}
+#multiplayer button{background:var(--green);color:var(--bg);border:none;font-family:'Share Tech Mono',monospace;font-size:14px;padding:8px 16px;border-radius:3px;cursor:pointer;transition:all .15s;margin:4px;}
+#multiplayer button:hover{background:#22c55e;}
+#multiplayer button:disabled{opacity:0.5;cursor:not-allowed;}
+#netstatus{font-size:12px;color:var(--yellow);margin-top:8px;}
+#peerid{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--green);background:var(--panel);padding:4px 8px;border-radius:2px;margin-top:8px;}
+/* DEATH SCREEN */
+#dscr{position:fixed;inset:0;background:rgba(0,0,0,0.8);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:80;}
+#dscr h2{font-family:'Russo One',sans-serif;font-size:48px;color:var(--red);margin-bottom:16px;}
+#dstats{font-size:16px;color:var(--text);margin-bottom:24px;text-align:center;}
+#rbtn{background:var(--green);color:var(--bg);border:none;font-family:'Russo One',sans-serif;font-size:18px;padding:12px 24px;border-radius:4px;cursor:pointer;}
+/* LOG */
+#log{position:fixed;top:12px;right:12px;max-width:300px;z-index:15;}
+.le{font-size:11px;padding:4px 8px;margin-bottom:2px;background:var(--panel);border-radius:2px;backdrop-filter:blur(6px);}
+.le.good{color:var(--green);}.le.warn{color:var(--yellow);}.le.danger{color:var(--red);}
+/* MINIMAP */
+#minimap{position:fixed;top:12px;right:12px;width:120px;height:120px;background:var(--panel);border:1px solid var(--border);border-radius:3px;z-index:5;}
+/* NIGHT OVERLAY */
+#nover{position:fixed;inset:0;background:#00000088;pointer-events:none;z-index:3;opacity:0;}
+/* DAMAGE FLASH */
+#dflash{position:fixed;inset:0;background:#ff000044;pointer-events:none;z-index:4;opacity:0;}
+</style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div class="hrow">
+    <div class="hbox">
+      <div class="htime" id="htime">06:00</div>
+      <div class="hmeta"><span id="hday">DAY 1</span> &nbsp;<span class="hphase" id="hphase">☀ MORNING</span></div>
+    </div>
+    <div class="hbox">
+      <div class="hthreat">☣ <span id="hghouls">0</span> GHOULS</div>
+      <div class="hmeta">Wave <span id="hwave">1</span></div>
+    </div>
+    <div class="hbox" id="hweather" style="display:none;">
+      <span id="hweather-icon">☀</span> <span id="hweather-text">CLEAR</span>
+    </div>
+  </div>
+  <div class="hbox" id="hbars">
+    <div class="sb"><span class="sbico">❤</span><div class="sbtrack"><div class="sbfill fhp" id="bhp" style="width:100%"></div></div><span class="sbval" id="vhp">100</span></div>
+    <div class="sb"><span class="sbico">🍖</span><div class="sbtrack"><div class="sbfill fhu" id="bhu" style="width:100%"></div></div><span class="sbval" id="vhu">100</span></div>
+    <div class="sb"><span class="sbico">🌡</span><div class="sbtrack"><div class="sbfill ftm" id="btm" style="width:80%"></div></div><span class="sbval" id="vtm">80</span></div>
+    <div class="sb"><span class="sbico">⭐</span><div class="sbtrack"><div class="sbfill fxp" id="bxp" style="width:0%"></div></div><span class="sbval" id="vlvl">1</span></div>
+  </div>
+</div>
+
+<canvas id="minimap"></canvas>
+
+<!-- Virtual Joystick for Mobile -->
+<div id="virtual-joystick" style="display:none;">
+  <div class="joystick-base">
+    <div class="joystick-handle"></div>
+  </div>
+  <div class="joystick-buttons">
+    <button class="joystick-btn" id="btn-interact">E</button>
+    <button class="joystick-btn" id="btn-attack">A</button>
+  </div>
+</div>
+
+<!-- Panel buttons -->
+<div id="pbtns">
+  <button class="pbtn" id="pb-craft" onclick="togglePanel('craft')"><span class="pk">[C]</span>🔨 Craft</button>
+  <button class="pbtn" id="pb-inv"   onclick="togglePanel('inv')">  <span class="pk">[I]</span>🎒 Items</button>
+    <button class="pbtn" id="pb-skills" onclick="togglePanel('skills')"><span class="pk">[K]</span>⚡ Skills</button>
+</div>
+
+<!-- Hotbar -->
+<div id="hotbar">
+  <div class="hs active" id="h0"><span class="hn">1</span>✊</div>
+  <div class="hs" id="h1"><span class="hn">2</span></div>
+  <div class="hs" id="h2"><span class="hn">3</span></div>
+  <div class="hs" id="h3"><span class="hn">4</span></div>
+  <div class="hs" id="h4"><span class="hn">5</span></div>
+  <div class="hs" id="h5"><span class="hn">6</span></div>
+  <div class="hs" id="h6"><span class="hn">7</span></div>
+  <div class="hs" id="h7"><span class="hn">8</span></div>
+</div>
+
+<!-- Panels -->
+<div id="fp-craft" class="fp">
+  <div class="fp-title">🔨 CRAFTING</div>
+  <button class="cbtn" id="craft-hatchet"  onclick="craft('hatchet')"> 🪓 Hatchet  <span class="cc">5🪵 3🪨</span></button>
+  <button class="cbtn" id="craft-pickaxe" onclick="craft('pickaxe')"> ⛏ Pickaxe <span class="cc">5🪵 8🪨</span></button>
+  <button class="cbtn" id="craft-campfire" onclick="craft('campfire')">🔥 Campfire <span class="cc">8🪵</span></button>
+  <button class="cbtn" id="craft-torch"    onclick="craft('torch')">    🕯 Torch    <span class="cc">3🪵 1🌿</span></button>
+  <button class="cbtn" id="craft-wall"     onclick="craft('wall')">     🧱 Wall     <span class="cc">10🪵 5🪨</span></button>
+  <button class="cbtn" id="craft-spikes"   onclick="craft('spikes')">   🪤 Spikes   <span class="cc">5🪨 3⚙️</span></button>
+  <button class="cbtn" id="craft-bow"      onclick="craft('bow')">      🏹 Bow      <span class="cc">8🪵 3🌿</span></button>
+  <button class="cbtn" id="craft-bandage"  onclick="craft('bandage')">  🩹 Bandage  <span class="cc">4🌿</span></button>
+  <button class="cbtn" id="craft-stew"     onclick="craft('stew')">    🍲 Stew     <span class="cc">4🌿 2🪵</span></button>
+  <button class="cbtn" id="craft-backpack" onclick="craft('backpack')"> 🎒 Backpack <span class="cc">15🪵 10🪨 5🌿</span></button>
+</div>
+
+<div id="fp-inv" class="fp">
+  <div class="fp-title">🎒 INVENTORY</div>
+  <div id="igrid"></div>
+</div>
+
+<div id="fp-skills" class="fp">
+  <div class="fp-title">⚡ SKILLS</div>
+  <div style="font-size:11px;color:var(--dim);margin-bottom:8px;">Skill Points: <span id="skillpoints" style="color:var(--yellow);">0</span></div>
+  <button class="cbtn" onclick="unlockPerk('regen')">🔄 Regeneration (3 SP)</button>
+  <button class="cbtn" onclick="unlockPerk('nightvision')">👁️ Night Vision (2 SP)</button>
+  <button class="cbtn" onclick="unlockPerk('lucky')">🍀 Lucky (4 SP)</button>
+  <button class="cbtn" onclick="unlockPerk('tank')">🛡️ Tank (5 SP)</button>
+  <button class="cbtn" onclick="unlockPerk('scavenger')">⛏️ Scavenger (3 SP)</button>
+</div>
+
+<div id="fp-trade" class="fp">
+  <div class="fp-title" id="trader-info">Merchant</div>
+  <div id="trade-items"></div>
+  <button onclick="closePanel('trade')">Close</button>
+</div>
+
+<!-- Death screen -->
+<div id="dscr">
+  <h2>☠ YOU DIED</h2>
+  <div id="dstats"></div>
+  <button id="rbtn" onclick="respawn()">⟳ RESPAWN</button>
+</div>
+
+<!-- Splash screen -->
+<div id="splash">
+  <h1>☢ WASTELAND</h1>
+  <p>Gather. Craft. Build. Survive the night.</p>
+  <div class="cgrid">
+    <div><span>WASD/Arrows</span> — move</div><div><span>E</span> — gather</div>
+    <div><span>SPACE/Click</span> — attack</div><div><span>F</span> — use item</div>
+    <div><span>C</span> — crafting</div><div><span>I</span> — inventory</div>
+    <div><span>M</span> — minimap</div>
+    <div><span>Q</span> — drop item</div>
+    <div><span>1-8</span> — select hotbar</div>
+  </div>
+  <button id="sbtn" onclick="startGame()">▶ SURVIVE</button>
+</div>
+
+<!-- Multiplayer screen -->
+<div id="multiplayer">
+  <h2>☢ WASTELAND - MULTIPLAYER</h2>
+  <p>Host a game or join a friend. PeerJS P2P multiplayer - no server required!</p>
+  <input type="text" id="nickname" placeholder="Enter nickname..." maxlength="12">
+  <button onclick="showHost()">HOST GAME</button>
+  <button onclick="showJoin()">JOIN GAME</button>
+  <button onclick="startSolo()">PLAY SOLO</button>
+  <div id="netstatus"></div>
+  <div id="peerid" style="display:none;"></div>
+</div>
+
+<!-- Log -->
+<div id="log"></div>
+
+<!-- Night overlay -->
+<div id="nover"></div>
+
+<!-- Damage flash -->
+<div id="dflash"></div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+<!-- Load modules -->
+<script src="js/constants.js"></script>
+<script src="js/state.js"></script>
+<script src="js/inventory.js"></script>
+<script src="js/game.js"></script>
+<script src="js/network.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/input.js"></script>
+<script src="js/render.js"></script>
+<script src="js/main.js"></script>
+
+<script>
+// Initialize game
+window.addEventListener('load', () => {
+  ensureNetworkUi();
+  
+  // Check PeerJS loading
+  setTimeout(()=>{
+    if(!hasPeer()){
+      console.error('[INIT] PeerJS failed to load from CDN');
+      setNetStatus('PeerJS library failed to load. Check internet connection.');
+    } else {
+      console.log('[INIT] PeerJS loaded successfully');
+    }
+  }, 2000);
+});
+</script>
+
+</body>
+</html>

@@ -362,15 +362,24 @@ function addResource(player, resourceType, amount){
     const icon=icons[resourceType]||'📦';
     const itemName=resourceType.charAt(0).toUpperCase()+resourceType.slice(1);
     
-    // Find existing stack
-    const existing=bag.find(i=>i.name===itemName);
-    if(existing){
-      // Add to existing stack, respecting stack size
-      const maxInStack=Math.min(stackSize, existing.c + canAdd);
-      existing.c=maxInStack;
-    } else {
-      // Create new stack
-      bag.push({em:icon,name:itemName,c:canAdd});
+    // Find existing stacks that aren't full
+    const existingStacks=bag.filter(i=>i.name===itemName && i.c < stackSize);
+    let remainingAmount=canAdd;
+    
+    // Fill existing stacks first
+    for(const stack of existingStacks){
+      if(remainingAmount <= 0)break;
+      const spaceLeft=stackSize - stack.c;
+      const toAdd=Math.min(remainingAmount, spaceLeft);
+      stack.c += toAdd;
+      remainingAmount -= toAdd;
+    }
+    
+    // Create new stacks for remaining amount
+    while(remainingAmount > 0){
+      const newStackAmount=Math.min(remainingAmount, stackSize);
+      bag.push({em:icon,name:itemName,c:newStackAmount});
+      remainingAmount -= newStackAmount;
     }
     
     if(player===S.p){
@@ -407,8 +416,7 @@ function moveFromHotbarToInventory(slotIndex){
   const item=hotbar[slotIndex];
   
   if(!item || item === '' || slotIndex === 0){
-    glog('Cannot move hand slot!','warn');
-    return;
+    return; // Silent return, no error message
   }
   
   const bag=playerBag(S.p);
@@ -2096,30 +2104,33 @@ document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 let draggedItem=null;
 let draggedFrom=null;
 
-document.getElementById('canvas').addEventListener('click',()=>{
+document.getElementById('canvas').addEventListener('click',(e)=>{
   if(!running)return;
   const cv=document.getElementById('canvas'),r=cv.getBoundingClientRect();
-  const mx=mouse.x-r.left+S.cam.x,my=mouse.y-r.top+S.cam.y;
+  const mx=e.clientX-r.left+S.cam.x,my=e.clientY-r.top+S.cam.y;
   
-  // Check hotbar clicks
-  const tileSize=TILE;
-  for(let i=0;i<8;i++){
-    const hx=S.p.x+(i-4)*tileSize*0.8;
-    const hy=S.p.y;
-    if(Math.abs(mx-hx)<tileSize/2 && Math.abs(my-hy)<tileSize/2){
-      if(S.p.hsel===i){
+  // Check if clicking on actual hotbar UI elements, not game world
+  const hotbarEl = document.getElementById('hotbar');
+  const hotbarRect = hotbarEl.getBoundingClientRect();
+  if(e.clientX >= hotbarRect.left && e.clientX <= hotbarRect.right &&
+     e.clientY >= hotbarRect.top && e.clientY <= hotbarRect.bottom){
+    // Click is on hotbar UI, handle hotbar interaction
+    const slotWidth = hotbarRect.width / 8;
+    const clickedSlot = Math.floor((e.clientX - hotbarRect.left) / slotWidth);
+    if(clickedSlot >= 0 && clickedSlot < 8){
+      if(S.p.hsel===clickedSlot){
         // Move item from hotbar to inventory
-        moveFromHotbarToInventory(i);
+        moveFromHotbarToInventory(clickedSlot);
       } else {
         // Select hotbar slot
-        S.p.hsel=i;
+        S.p.hsel=clickedSlot;
         updHotbar();
       }
-      return;
     }
+    return;
   }
   
-  // Regular attack
+  // Regular attack for game world clicks
   attack();
 });
 
