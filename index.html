@@ -916,8 +916,25 @@ function spawnBoss(type){
 // ═══ GAME LOOP ═══
 function loop(ts){
   if(!running){NET.looping=false;return;}
+  
+  // Validate game state before update
+  if (!ERROR_HANDLER.validateGameState()) {
+    console.error('[GAME] Critical state validation failed, stopping loop');
+    running = false;
+    return;
+  }
+  
   const dt=Math.min((ts-last)/1000,.05);last=ts;
-  update(dt);render();requestAnimationFrame(loop);
+  
+  try {
+    update(dt);
+    render();
+  } catch (error) {
+    ERROR_HANDLER.logError('Game Loop Error', error.message);
+    glog('Game error occurred. Check console for details.', 'danger');
+  }
+  
+  PERFORMANCE_MONITOR.safeRequestAnimationFrame(loop);
 }
 
 function startLoop(){
@@ -1402,13 +1419,134 @@ function craft(id,player=S.p){
   if(player===S.p){updCraft();updInv();}
 }
 
+// Building system with ghost preview and validation
+const BUILD_SYSTEM = {
+  active: false,
+  buildType: null,
+  buildIcon: null,
+  ghostX: 0,
+  ghostY: 0,
+  isValid: false,
+  buildRange: 4, // tiles
+  
+  // Check if position is valid for building
+  isValidPosition(tx, ty, player = S.p) {
+    if (!player || tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return false;
+    
+    // Check distance from player
+    const playerTileX = ~~(player.x / TILE);
+    const playerTileY = ~~(player.y / TILE);
+    const distance = Math.abs(tx - playerTileX) + Math.abs(ty - playerTileY);
+    if (distance > this.buildRange) return false;
+    
+    // Check tile collision
+    const tile = S.map[ty][tx];
+    if (SOLID.has(tile.t)) return false;
+    
+    // Check if position would intersect with player
+    const objX = tx * TILE + TILE / 2;
+    const objY = ty * TILE + TILE / 2;
+    if (Math.abs(objX - player.x) < TILE && Math.abs(objY - player.y) < TILE) return false;
+    
+    // Check collision with other objects
+    const existingObj = S.objs.find(o => ~~(o.x / TILE) === tx && ~~(o.y / TILE) === ty);
+    if (existingObj) return false;
+    
+    return true;
+  },
+  
+  // Start building mode
+  startBuilding(type, icon) {
+    if (!S.p || !running) return false;
+    
+    this.active = true;
+    this.buildType = type;
+    this.buildIcon = icon;
+    
+    glog(`Building mode: ${icon} - Click to place, ESC to cancel`, 'good');
+    return true;
+  },
+  
+  // Cancel building
+  cancelBuilding() {
+    this.active = false;
+    this.buildType = null;
+    this.buildIcon = null;
+    glog('Building cancelled', '');
+  },
+  
+  // Place the object
+  placeObject(player = S.p) {
+    if (!this.active || !this.isValid) return false;
+    
+    const tx = this.ghostX;
+    const ty = this.ghostY;
+    
+    // Double check validity
+    if (!this.isValidPosition(tx, ty, player)) {
+      glog('Invalid position!', 'warn');
+      return false;
+    }
+    
+    // Place the object
+    S.objs.push({
+      x: tx * TILE + TILE / 2,
+      y: ty * TILE + TILE / 2,
+      t: this.buildType,
+      em: this.buildIcon
+    });
+    
+    // Mark tile as dirty for network sync
+    if (NET.mode === 'host') {
+      markTileDirty(tx, ty, { t: this.buildType, r: 0 });
+    }
+    
+    glog(`Placed ${this.buildIcon}`, 'good');
+    this.cancelBuilding();
+    return true;
+  },
+  
+  // Update ghost position
+  updateGhost(mouseX, mouseY) {
+    if (!this.active || !S.p) return;
+    
+    const cv = document.getElementById('canvas');
+    const rect = cv.getBoundingClientRect();
+    const worldX = mouseX - rect.left + S.cam.x;
+    const worldY = mouseY - rect.top + S.cam.y;
+    
+    // Grid snapping
+    const tx = ~~(worldX / TILE);
+    const ty = ~~(worldY / TILE);
+    
+    this.ghostX = tx;
+    this.ghostY = ty;
+    this.isValid = this.isValidPosition(tx, ty);
+  }
+};
+
 function placeObj(type,em,player=S.p){
-  const p=player;
-  const tx=~~(p.x/TILE)+Math.round(Math.cos(p.ang));
-  const ty=~~(p.y/TILE)+Math.round(Math.sin(p.ang));
-  if(!S.objs.some(o=>~~(o.x/TILE)===tx&&~~(o.y/TILE)===ty))
-    S.objs.push({x:tx*TILE+TILE/2,y:ty*TILE+TILE/2,t:type,em});
-  glog(`Placed ${em}`,'good');
+  // Legacy function - redirect to new building system
+  const buildableTypes = {
+    [T.WALL]: 'wall',
+    [T.SPIKE]: 'spikes', 
+    [T.TORCH]: 'torch',
+    [T.FIRE]: 'campfire'
+  };
+  
+  const buildableId = buildableTypes[type];
+  if (buildableId) {
+    // Start building mode instead of immediate placement
+    BUILD_SYSTEM.startBuilding(type, em);
+  } else {
+    // Fallback for non-buildable items
+    const p=player;
+    const tx=~~(p.x/TILE)+Math.round(Math.cos(p.ang));
+    const ty=~~(p.y/TILE)+Math.round(Math.sin(p.ang));
+    if(!S.objs.some(o=>~~(o.x/TILE)===tx&&~~(o.y/TILE)===ty))
+      S.objs.push({x:tx*TILE+TILE/2,y:ty*TILE+TILE/2,t:type,em});
+    glog(`Placed ${em}`,'good');
+  }
 }
 
 function addInv(em,name,player=S.p){
@@ -1444,6 +1582,41 @@ function render(){
     ctx.strokeStyle='rgba(100,255,120,.75)';ctx.lineWidth=2;
     ctx.strokeRect(sx+2,sy+2,TILE-4,TILE-4);
     ctx.fillStyle='rgba(100,255,120,.07)';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);
+  }
+
+  // Building ghost preview
+  if(BUILD_SYSTEM.active && BUILD_SYSTEM.buildIcon){
+    const sx=BUILD_SYSTEM.ghostX*TILE-cam.x,sy=BUILD_SYSTEM.ghostY*TILE-cam.y;
+    
+    // Draw ghost preview
+    ctx.globalAlpha=0.6;
+    if(BUILD_SYSTEM.isValid){
+      // Valid position - green highlight
+      ctx.strokeStyle='rgba(100,255,120,0.8)';ctx.lineWidth=2;
+      ctx.strokeRect(sx+2,sy+2,TILE-4,TILE-4);
+      ctx.fillStyle='rgba(100,255,120,0.1)';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);
+      ctx.font='22px serif';ctx.fillStyle='rgba(255,255,255,0.8)';ctx.fillText(BUILD_SYSTEM.buildIcon,sx+9,sy+28);
+    } else {
+      // Invalid position - red highlight
+      ctx.strokeStyle='rgba(255,100,100,0.8)';ctx.lineWidth=2;
+      ctx.strokeRect(sx+2,sy+2,TILE-4,TILE-4);
+      ctx.fillStyle='rgba(255,100,100,0.1)';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);
+      ctx.font='22px serif';ctx.fillStyle='rgba(255,255,255,0.4)';ctx.fillText(BUILD_SYSTEM.buildIcon,sx+9,sy+28);
+    }
+    ctx.globalAlpha=1.0;
+    
+    // Show build range indicator
+    const playerTileX=~~(p.x/TILE);
+    const playerTileY=~~(p.y/TILE);
+    ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;
+    ctx.setLineDash([5,5]);
+    ctx.strokeRect(
+      (playerTileX-BUILD_SYSTEM.buildRange)*TILE-cam.x,
+      (playerTileY-BUILD_SYSTEM.buildRange)*TILE-cam.y,
+      (BUILD_SYSTEM.buildRange*2+1)*TILE,
+      (BUILD_SYSTEM.buildRange*2+1)*TILE
+    );
+    ctx.setLineDash([]);
   }
 
   // Objects
@@ -1734,38 +1907,434 @@ function updHotbar(){
   }
 }
 
-function handleDrop(draggedItem, target){
-  if(draggedFrom === target.type && draggedItem.index === target.index)return;
+// Improved inventory and item management system
+const INVENTORY_SYSTEM = {
+  // Item definitions and validation
+  ITEM_TYPES: {
+    // Tools
+    hatchet: { name: 'Hatchet', icon: '🪓', stackable: false, category: 'tool' },
+    pickaxe: { name: 'Pickaxe', icon: '⛏', stackable: false, category: 'tool' },
+    bow: { name: 'Bow', icon: '🏹', stackable: false, category: 'weapon' },
+    
+    // Building materials
+    wall: { name: 'Wall', icon: '🧱', stackable: false, category: 'building' },
+    spikes: { name: 'Spikes', icon: '🪤', stackable: false, category: 'building' },
+    torch: { name: 'Torch', icon: '🕯', stackable: false, category: 'building' },
+    
+    // Consumables
+    bandage: { name: 'Bandage', icon: '🩹', stackable: true, maxStack: 5, category: 'consumable' },
+    medkit: { name: 'Medkit', icon: '🏥', stackable: true, maxStack: 3, category: 'consumable' },
+    stew: { name: 'Stew', icon: '🍲', stackable: true, maxStack: 3, category: 'consumable' },
+    
+    // Resources
+    wood: { name: 'Wood', icon: '🪵', stackable: true, maxStack: 20, category: 'resource' },
+    stone: { name: 'Stone', icon: '🪨', stackable: true, maxStack: 40, category: 'resource' },
+    food: { name: 'Food', icon: '🌿', stackable: true, maxStack: 20, category: 'resource' },
+    metal: { name: 'Metal', icon: '⚙️', stackable: true, maxStack: 10, category: 'resource' }
+  },
   
-  if(target.type === 'hotbar' && target.index === 0)return; // Can't drop on hand
-  
-  if(draggedFrom === 'hotbar' && target.type === 'hotbar'){
-    // Hotbar to hotbar swap
-    const temp=S.p.hotbar[target.index];
-    S.p.hotbar[target.index]=S.p.hotbar[draggedItem.index];
-    S.p.hotbar[draggedItem.index]=temp;
-  } else if(draggedFrom === 'hotbar' && target.type === 'inventory'){
-    // Hotbar to inventory
-    moveFromHotbarToInventory(draggedItem.index);
-  } else if(draggedFrom === 'inventory' && target.type === 'hotbar'){
-    // Inventory to hotbar
-    const bag=playerBag(S.p);
-    const item=bag[draggedItem.index];
-    if(item){
-      S.p.hotbar[target.index]=item.em;
-      bag.splice(draggedItem.index,1);
+  // Get item definition
+  getItemDef(itemId) {
+    if (typeof itemId === 'string') {
+      // Try to find by ID
+      const def = this.ITEM_TYPES[itemId];
+      if (def) return def;
+      
+      // Try to find by icon
+      for (const [id, itemDef] of Object.entries(this.ITEM_TYPES)) {
+        if (itemDef.icon === itemId) return itemDef;
+      }
     }
-  } else if(draggedFrom === 'inventory' && target.type === 'inventory'){
-    // Inventory swap
-    const bag=playerBag(S.p);
-    const temp=bag[target.index];
-    bag[target.index]=bag[draggedItem.index];
-    bag[draggedItem.index]=temp;
-  }
+    return null;
+  },
   
-  updHotbar();
-  updInv();
-}
+  // Validate item data
+  validateItem(item) {
+    if (!item) return { valid: false, error: 'Item is null/undefined' };
+    
+    // Hotbar item (string)
+    if (typeof item === 'string') {
+      const def = this.getItemDef(item);
+      if (!def) return { valid: false, error: `Unknown item: ${item}` };
+      return { valid: true, def, type: 'hotbar' };
+    }
+    
+    // Inventory item (object)
+    if (typeof item === 'object') {
+      if (!item.em || !item.name) {
+        return { valid: false, error: 'Missing required fields (em, name)' };
+      }
+      
+      const def = this.getItemDef(item.em);
+      if (!def) return { valid: false, error: `Unknown item: ${item.em}` };
+      
+      if (item.c <= 0) {
+        return { valid: false, error: 'Invalid stack count' };
+      }
+      
+      if (def.stackable && def.maxStack && item.c > def.maxStack) {
+        return { valid: false, error: `Stack exceeds maximum (${def.maxStack})` };
+      }
+      
+      return { valid: true, def, type: 'inventory' };
+    }
+    
+    return { valid: false, error: 'Invalid item type' };
+  },
+  
+  // Get player inventory with validation
+  getPlayerInventory(player = S.p) {
+    if (!player) return { hotbar: [], bag: [], valid: false };
+    
+    const hotbar = playerHotbar(player) || [];
+    const bag = playerBag(player) || [];
+    
+    // Validate hotbar
+    const validHotbar = hotbar.map((item, index) => {
+      const validation = this.validateItem(item);
+      if (!validation.valid) {
+        console.warn(`[INVENTORY] Invalid hotbar item at index ${index}:`, validation.error);
+        return '';
+      }
+      return item;
+    });
+    
+    // Validate bag
+    const validBag = bag.filter((item, index) => {
+      const validation = this.validateItem(item);
+      if (!validation.valid) {
+        console.warn(`[INVENTORY] Invalid bag item at index ${index}:`, validation.error);
+        return false;
+      }
+      return true;
+    });
+    
+    return { hotbar: validHotbar, bag: validBag, valid: true };
+  },
+  
+  // Add item to inventory with proper stacking
+  addItem(itemDef, count = 1, player = S.p) {
+    if (!player || !itemDef) return false;
+    
+    const validation = this.validateItem(itemDef.icon || itemDef);
+    if (!validation.valid) {
+      console.error('[INVENTORY] Cannot add invalid item:', validation.error);
+      return false;
+    }
+    
+    const def = validation.def;
+    const icon = def.icon;
+    
+    if (def.stackable) {
+      // Try to stack with existing items
+      const bag = playerBag(player);
+      const existing = bag.find(item => item.em === icon);
+      
+      if (existing) {
+        const maxStack = def.maxStack || STACK_SIZES[def.name.toLowerCase()] || 20;
+        const canAdd = Math.min(count, maxStack - existing.c);
+        existing.c += canAdd;
+        return canAdd === count;
+      } else {
+        // Create new stack
+        if (bag.length < (player.invSize || 12)) {
+          bag.push({ em: icon, name: def.name, c: count });
+          return true;
+        }
+      }
+    } else {
+      // Non-stackable items go to hotbar first
+      const hotbar = playerHotbar(player);
+      for (let i = 1; i < hotbar.length; i++) {
+        if (!hotbar[i] || hotbar[i] === '') {
+          hotbar[i] = icon;
+          return true;
+        }
+      }
+      
+      // If hotbar is full, try inventory
+      const bag = playerBag(player);
+      if (bag.length < (player.invSize || 12)) {
+        bag.push({ em: icon, name: def.name, c: 1 });
+        return true;
+      }
+    }
+    
+    return false; // Inventory full
+  },
+  
+  // Remove item from inventory
+  removeItem(itemType, count = 1, player = S.p) {
+    if (!player || !itemType) return false;
+    
+    const def = this.getItemDef(itemType);
+    if (!def) return false;
+    
+    const icon = def.icon;
+    
+    // Try hotbar first
+    const hotbar = playerHotbar(player);
+    for (let i = 1; i < hotbar.length; i++) {
+      if (hotbar[i] === icon) {
+        if (def.stackable && count > 1) {
+          // Move to inventory and handle stacking
+          const bag = playerBag(player);
+          const existing = bag.find(item => item.em === icon);
+          if (existing) {
+            const canRemove = Math.min(count, existing.c);
+            existing.c -= canRemove;
+            if (existing.c <= 0) {
+              bag.splice(bag.indexOf(existing), 1);
+            }
+            hotbar[i] = '';
+            return canRemove === count;
+          }
+        } else {
+          hotbar[i] = '';
+          return true;
+        }
+      }
+    }
+    
+    // Try inventory
+    const bag = playerBag(player);
+    const existing = bag.find(item => item.em === icon);
+    if (existing) {
+      const canRemove = Math.min(count, existing.c);
+      existing.c -= canRemove;
+      if (existing.c <= 0) {
+        bag.splice(bag.indexOf(existing), 1);
+      }
+      return canRemove === count;
+    }
+    
+    return false;
+  },
+  
+  // Get item count
+  getItemCount(itemType, player = S.p) {
+    if (!player || !itemType) return 0;
+    
+    const def = this.getItemDef(itemType);
+    if (!def) return 0;
+    
+    const icon = def.icon;
+    let count = 0;
+    
+    // Check hotbar
+    const hotbar = playerHotbar(player);
+    hotbar.forEach(item => {
+      if (item === icon) count += 1;
+    });
+    
+    // Check inventory
+    const bag = playerBag(player);
+    bag.forEach(item => {
+      if (item.em === icon) count += item.c || 1;
+    });
+    
+    return count;
+  },
+  
+  // Clean up invalid items
+  cleanupInventory(player = S.p) {
+    if (!player) return false;
+    
+    const inventory = this.getPlayerInventory(player);
+    if (!inventory.valid) return false;
+    
+    // Update with cleaned inventory
+    player.hotbar = inventory.hotbar;
+    player.bag = inventory.bag;
+    
+    console.log('[INVENTORY] Cleaned up invalid items');
+    return true;
+  }
+};
+
+// Error handling and edge case protection system
+const ERROR_HANDLER = {
+  // Global error catcher
+  init() {
+    window.addEventListener('error', (e) => {
+      console.error('[GLOBAL ERROR]', e.error);
+      this.logError('JavaScript Error', e.error.message, e.filename, e.lineno);
+    });
+    
+    window.addEventListener('unhandledrejection', (e) => {
+      console.error('[UNHANDLED PROMISE REJECTION]', e.reason);
+      this.logError('Promise Rejection', e.reason);
+    });
+  },
+  
+  // Log errors with context
+  logError(type, message, context = '', line = 0) {
+    const timestamp = new Date().toISOString();
+    const errorLog = `${timestamp} [${type}] ${message}`;
+    if (context) console.error(errorLog, `at ${context}:${line}`);
+    else console.error(errorLog);
+    
+    // Show user-friendly message for critical errors
+    if (type === 'JavaScript Error' && message.includes('Cannot read propert')) {
+      glog('Game error detected. Try refreshing the page.', 'danger');
+    }
+  },
+  
+  // Safe function wrapper
+  safeWrap(fn, fallback = null) {
+    return (...args) => {
+      try {
+        return fn(...args);
+      } catch (error) {
+        this.logError('Function Error', error.message, fn.name);
+        if (fallback) return fallback(...args);
+        return null;
+      }
+    };
+  },
+  
+  // Validate game state
+  validateGameState() {
+    if (!S) {
+      console.warn('[VALIDATION] Game state S is undefined');
+      return false;
+    }
+    
+    if (!S.p) {
+      console.warn('[VALIDATION] Player S.p is undefined');
+      return false;
+    }
+    
+    // Validate player position
+    if (typeof S.p.x !== 'number' || typeof S.p.y !== 'number') {
+      console.warn('[VALIDATION] Invalid player position');
+      S.p.x = S.p.x || 0;
+      S.p.y = S.p.y || 0;
+    }
+    
+    // Validate player stats
+    if (typeof S.p.hp !== 'number' || S.p.hp < 0) {
+      console.warn('[VALIDATION] Invalid HP, resetting');
+      S.p.hp = Math.max(0, S.p.hp || 100);
+    }
+    
+    if (typeof S.p.maxhp !== 'number' || S.p.maxhp <= 0) {
+      console.warn('[VALIDATION] Invalid max HP, resetting');
+      S.p.maxhp = Math.max(1, S.p.maxhp || 100);
+    }
+    
+    return true;
+  },
+  
+  // Safe array operations
+  safeArrayAccess(array, index, fallback = null) {
+    if (!Array.isArray(array)) return fallback;
+    if (index < 0 || index >= array.length) return fallback;
+    return array[index];
+  },
+  
+  // Safe object property access
+  safePropertyAccess(obj, property, fallback = null) {
+    if (!obj || typeof obj !== 'object') return fallback;
+    return obj.hasOwnProperty(property) ? obj[property] : fallback;
+  }
+};
+
+// Input validation and sanitization
+const INPUT_VALIDATOR = {
+  // Validate keyboard input
+  validateKey(key) {
+    if (typeof key !== 'string') return false;
+    // Allow only specific game keys
+    const allowedKeys = /^[wasdqe fcr1234567890\-\=\[\]\\;',\.\/\`\s]+$/i;
+    return allowedKeys.test(key);
+  },
+  
+  // Validate mouse coordinates
+  validateMouseCoords(x, y) {
+    return typeof x === 'number' && typeof y === 'number' && 
+           x >= 0 && y >= 0 && x <= window.innerWidth && y <= window.innerHeight;
+  },
+  
+  // Sanitize string input
+  sanitizeString(str, maxLength = 100) {
+    if (typeof str !== 'string') return '';
+    return str.slice(0, maxLength).replace(/[^\x20-\x7E]/g, '');
+  },
+  
+  // Validate player name
+  validatePlayerName(name) {
+    if (typeof name !== 'string') return false;
+    const cleanName = this.sanitizeString(name, 16);
+    return cleanName.length >= 1 && cleanName.length <= 16;
+  }
+};
+
+// Performance monitoring
+const PERFORMANCE_MONITOR = {
+  frameCount: 0,
+  lastFpsUpdate: 0,
+  fps: 60,
+  
+  update() {
+    this.frameCount++;
+    const now = performance.now();
+    
+    if (now - this.lastFpsUpdate >= 1000) {
+      this.fps = this.frameCount;
+      this.frameCount = 0;
+      this.lastFpsUpdate = now;
+      
+      // Warn about low performance
+      if (this.fps < 30) {
+        console.warn(`[PERFORMANCE] Low FPS: ${this.fps}`);
+      }
+    }
+  },
+  
+  // Safe requestAnimationFrame with error handling
+  safeRequestAnimationFrame(callback) {
+    return requestAnimationFrame((timestamp) => {
+      try {
+        callback(timestamp);
+        this.update();
+      } catch (error) {
+        ERROR_HANDLER.logError('Render Error', error.message);
+      }
+    });
+  }
+};
+
+// Network safety wrapper
+const NETWORK_SAFETY = {
+  // Validate network messages
+  validateMessage(msg) {
+    if (!msg || typeof msg !== 'object') return false;
+    if (!msg.type || typeof msg.type !== 'string') return false;
+    
+    // Check for dangerous message types
+    const dangerousTypes = ['eval', 'script', 'function'];
+    if (dangerousTypes.includes(msg.type.toLowerCase())) {
+      console.warn('[NETWORK] Dangerous message type rejected:', msg.type);
+      return false;
+    }
+    
+    return true;
+  },
+  
+  // Safe data serialization
+  safeSerialize(data) {
+    try {
+      return JSON.parse(JSON.stringify(data));
+    } catch (error) {
+      ERROR_HANDLER.logError('Serialization Error', error.message);
+      return null;
+    }
+  }
+};
+
+// Initialize safety systems
+ERROR_HANDLER.init();
 
 function updInv(){
   const grid=document.getElementById('igrid');grid.innerHTML='';
@@ -1782,18 +2351,17 @@ function updInv(){
     sl.innerHTML=`${item.em}<span class="ic">${item.c>1?item.c:''}</span>`;
     sl.title=`${item.name} (from inventory)`;
     
-    // Add drag events
+    // Add drag events using new system
     sl.addEventListener('dragstart',(e)=>{
+      if (!DRAG_DROP_SYSTEM.startDrag('inventory', i, item, sl)) {
+        e.preventDefault();
+        return;
+      }
       e.dataTransfer.effectAllowed='move';
-      draggedItem={type:'inventory',index:i,item:item};
-      draggedFrom='inventory';
-      sl.classList.add('dragging');
     });
     
     sl.addEventListener('dragend',()=>{
-      sl.classList.remove('dragging');
-      draggedItem=null;
-      draggedFrom=null;
+      DRAG_DROP_SYSTEM.endDrag();
     });
     
     sl.addEventListener('dragover',(e)=>{
@@ -1808,8 +2376,7 @@ function updInv(){
     sl.addEventListener('drop',(e)=>{
       e.preventDefault();
       sl.classList.remove('dragging');
-      if(!draggedItem)return;
-      handleDrop(draggedItem,{type:'inventory',index:i});
+      DRAG_DROP_SYSTEM.executeDrop('inventory', i);
     });
     
     grid.appendChild(sl);
@@ -1837,18 +2404,18 @@ function updInv(){
           sl.innerHTML=`${icon}<span class="ic">${stackAmount}</span>`;
           sl.title=`${itemName} (from resources)`;
           
-          // Add drag events for resource stacks
+          // Add drag events for resource stacks using new system
+          const resourceItem = {em:icon,name:itemName,c:stackAmount};
           sl.addEventListener('dragstart',(e)=>{
+            if (!DRAG_DROP_SYSTEM.startDrag('inventory', invIndex, resourceItem, sl)) {
+              e.preventDefault();
+              return;
+            }
             e.dataTransfer.effectAllowed='move';
-            draggedItem={type:'inventory',index:invIndex,item:{em:icon,name:itemName,c:stackAmount}};
-            draggedFrom='inventory';
-            sl.classList.add('dragging');
           });
           
           sl.addEventListener('dragend',()=>{
-            sl.classList.remove('dragging');
-            draggedItem=null;
-            draggedFrom=null;
+            DRAG_DROP_SYSTEM.endDrag();
           });
           
           sl.addEventListener('dragover',(e)=>{
@@ -1863,8 +2430,7 @@ function updInv(){
           sl.addEventListener('drop',(e)=>{
             e.preventDefault();
             sl.classList.remove('dragging');
-            if(!draggedItem)return;
-            handleDrop(draggedItem,{type:'inventory',index:invIndex});
+            DRAG_DROP_SYSTEM.executeDrop('inventory', invIndex);
           });
           
           grid.appendChild(sl);
@@ -2069,74 +2635,307 @@ function syncPanels(){
   }
 }
 
+// Hotbar selection system - clean and predictable
+function selectHotbarSlot(index, source='unknown'){
+  if(!S.p || !running || index < 0 || index >= 8) return;
+  
+  console.log(`[HOTBAR] Selecting slot ${index} from ${source}`);
+  S.p.hsel=index;
+  
+  // Update UI immediately
+  document.querySelectorAll('.hs').forEach((s,j)=>s.classList.toggle('active',j===index));
+  
+  // Update hotbar display
+  updHotbar();
+}
+
 // ═══ INPUT ═══
 document.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();keys[k]=true;
   if(!running)return;
+  
+  // ESC to cancel building mode
+  if(k==='escape' && BUILD_SYSTEM.active){
+    BUILD_SYSTEM.cancelBuilding();
+    return;
+  }
+  
   if(k==='e')interact();
   if(k==='f')useItem();
   if(k===' '){e.preventDefault();attack();}
-  if(k==='c')togglePanel('craft');
-  if(k==='i')togglePanel('inv');
-  // R key removed - resources panel no longer needed
-  if(k==='k')togglePanel('skills');
-  // T key removed - no trade
-  if(k==='m'){const mc=document.getElementById('minimap');mc.style.display=mc.style.display==='none'?'block':'none';}
-  // Movement keys
-  if(k==='a'||k==='arrowleft')keys.a=true;
-  if(k==='d'||k==='arrowright')keys.d=true;
-  if('12345678'.includes(k)&&k>='1'&&k<='8'){
-    const i=+k-1;S.p.hsel=i;
-    document.querySelectorAll('.hs').forEach((s,j)=>s.classList.toggle('active',j===i));
-  }
-  // Drop items with Q
-  if(k==='q')dropItemMenu();
-});
-document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
-let draggedItem=null;
-let draggedFrom=null;
-
-document.getElementById('canvas').addEventListener('click',()=>{
-  if(!running)return;
-  const cv=document.getElementById('canvas'),r=cv.getBoundingClientRect();
-  const mx=mouse.x-r.left+S.cam.x,my=mouse.y-r.top+S.cam.y;
   
-  // Check hotbar clicks
-  const tileSize=TILE;
-  for(let i=0;i<8;i++){
-    const hx=S.p.x+(i-4)*tileSize*0.8;
-    const hy=S.p.y;
-    if(Math.abs(mx-hx)<tileSize/2 && Math.abs(my-hy)<tileSize/2){
-      if(S.p.hsel===i){
-        // Move item from hotbar to inventory
-        moveFromHotbarToInventory(i);
-      } else {
-        // Select hotbar slot
-        S.p.hsel=i;
-        updHotbar();
-      }
-      return;
+  // Hotbar selection with 1-8 keys
+  if('12345678'.includes(e.key) && e.key >= '1' && e.key <= '8'){
+    const slotIndex = +e.key - 1;
+    selectHotbarSlot(slotIndex, 'keyboard');
+  }
+  
+  // Drop items with Q
+  if(e.key.toLowerCase() === 'q') dropItemMenu();
+});
+
+document.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+
+// Mouse wheel support for hotbar selection
+document.getElementById('canvas').addEventListener('wheel', (e) => {
+  if(!running || !S.p) return;
+  
+  e.preventDefault();
+  
+  const currentSlot = S.p.hsel || 0;
+  let newSlot;
+  
+  if(e.deltaY > 0) {
+    // Scroll down - next slot
+    newSlot = (currentSlot + 1) % 8;
+  } else {
+    // Scroll up - previous slot
+    newSlot = (currentSlot - 1 + 8) % 8;
+  }
+  
+  selectHotbarSlot(newSlot, 'mousewheel');
+}, { passive: false });
+
+// Improved drag and drop system with validation and error handling
+const DRAG_DROP_SYSTEM = {
+  // State management
+  state: {
+    isDragging: false,
+    source: null, // {type: 'hotbar'|'inventory', index: number, item: any}
+    target: null,
+    dragElement: null
+  },
+  
+  // Validation helpers
+  validateItem(item) {
+    if (!item) return false;
+    if (typeof item === 'string') {
+      return item.length > 0; // Hotbar item (emoji)
     }
+    if (typeof item === 'object') {
+      return item.em && item.name && (item.c > 0); // Inventory item
+    }
+    return false;
+  },
+  
+  // Start drag operation
+  startDrag(type, index, item, element) {
+    if (!this.validateItem(item)) {
+      console.warn('[DRAG_DROP] Invalid item data:', item);
+      return false;
+    }
+    
+    this.state.isDragging = true;
+    this.state.source = { type, index, item: this.cloneItem(item) };
+    this.state.dragElement = element;
+    
+    if (element) element.classList.add('dragging');
+    return true;
+  },
+  
+  // End drag operation
+  endDrag() {
+    if (this.state.dragElement) {
+      this.state.dragElement.classList.remove('dragging');
+    }
+    
+    this.state.isDragging = false;
+    this.state.source = null;
+    this.state.target = null;
+    this.state.dragElement = null;
+    
+    // Clean up any remaining dragging states
+    document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+  },
+  
+  // Clone item to avoid reference mutations
+  cloneItem(item) {
+    if (typeof item === 'string') return item;
+    if (typeof item === 'object') return { ...item };
+    return null;
+  },
+  
+  // Get item from source
+  getItemFromSource(type, index) {
+    if (type === 'hotbar') {
+      const hotbar = playerHotbar(S.p);
+      return hotbar[index] || '';
+    }
+    if (type === 'inventory') {
+      const bag = playerBag(S.p);
+      return bag[index] || null;
+    }
+    return null;
+  },
+  
+  // Set item at destination
+  setItemAtDestination(type, index, item) {
+    if (type === 'hotbar') {
+      const hotbar = playerHotbar(S.p);
+      hotbar[index] = item || '';
+      S.p.hotbar = hotbar;
+    }
+    if (type === 'inventory') {
+      const bag = playerBag(S.p);
+      if (item) {
+        bag[index] = item;
+      } else {
+        bag.splice(index, 1);
+      }
+    }
+  },
+  
+  // Remove item from source
+  removeItemFromSource(type, index) {
+    if (type === 'hotbar') {
+      const hotbar = playerHotbar(S.p);
+      hotbar[index] = '';
+      S.p.hotbar = hotbar;
+    }
+    if (type === 'inventory') {
+      const bag = playerBag(S.p);
+      bag.splice(index, 1);
+    }
+  },
+  
+  // Execute drop operation
+  executeDrop(targetType, targetIndex) {
+    if (!this.state.isDragging || !this.state.source) {
+      console.warn('[DRAG_DROP] No active drag operation');
+      return false;
+    }
+    
+    const { type: sourceType, index: sourceIndex, item: sourceItem } = this.state.source;
+    
+    // Prevent dropping on hand slot (index 0)
+    if (targetType === 'hotbar' && targetIndex === 0) {
+      glog('Cannot drop on hand slot!', 'warn');
+      return false;
+    }
+    
+    // Prevent dragging from hand slot
+    if (sourceType === 'hotbar' && sourceIndex === 0) {
+      glog('Cannot drag from hand slot!', 'warn');
+      return false;
+    }
+    
+    // Prevent dropping on same location
+    if (sourceType === targetType && sourceIndex === targetIndex) {
+      return false;
+    }
+    
+    // Get target item
+    const targetItem = this.getItemFromSource(targetType, targetIndex);
+    
+    // Handle different transfer scenarios
+    try {
+      if (sourceType === 'hotbar' && targetType === 'hotbar') {
+        // Hotbar to hotbar swap
+        this.setItemAtDestination(targetType, targetIndex, sourceItem);
+        this.setItemAtDestination(sourceType, sourceIndex, targetItem);
+      } else if (sourceType === 'hotbar' && targetType === 'inventory') {
+        // Hotbar to inventory
+        this.setItemAtDestination(targetType, targetIndex, this.hotbarToInventoryItem(sourceItem));
+        this.removeItemFromSource(sourceType, sourceIndex);
+      } else if (sourceType === 'inventory' && targetType === 'hotbar') {
+        // Inventory to hotbar
+        this.setItemAtDestination(targetType, targetIndex, sourceItem.em);
+        this.removeItemFromSource(sourceType, sourceIndex);
+      } else if (sourceType === 'inventory' && targetType === 'inventory') {
+        // Inventory swap
+        this.setItemAtDestination(targetType, targetIndex, sourceItem);
+        this.setItemAtDestination(sourceType, sourceIndex, targetItem);
+      }
+      
+      // Update UI
+      this.updateUI();
+      console.log(`[DRAG_DROP] ${sourceType}[${sourceIndex}] -> ${targetType}[${targetIndex}]`);
+      return true;
+      
+    } catch (error) {
+      console.error('[DRAG_DROP] Error during drop:', error);
+      glog('Failed to move item!', 'danger');
+      return false;
+    }
+  },
+  
+  // Convert hotbar item to inventory item format
+  hotbarToInventoryItem(hotbarItem) {
+    if (!hotbarItem || hotbarItem === '') return null;
+    
+    const icons = {
+      '🪵': 'Wood', '🪨': 'Stone', '🌿': 'Food', '⚙️': 'Metal',
+      '🪓': 'Hatchet', '⛏': 'Pickaxe', '🏹': 'Bow', '🩹': 'Bandage',
+      '🕯': 'Torch', '🧱': 'Wall', '🪤': 'Spikes'
+    };
+    
+    const name = icons[hotbarItem] || 'Item';
+    return { em: hotbarItem, name, c: 1 };
+  },
+  
+  // Update UI after drag operation
+  updateUI() {
+    try {
+      updInv();
+      updHotbar();
+    } catch (error) {
+      console.error('[DRAG_DROP] UI update failed:', error);
+    }
+  }
+};
+
+// Legacy compatibility
+document.addEventListener('dragend', () => {
+  DRAG_DROP_SYSTEM.endDrag();
+});
+
+// Remove canvas click hotbar selection - only allow keyboard, wheel, and direct UI clicks
+// The previous implementation caused random hotbar slot switching when clicking in game world
+
+// Canvas click handler - with building system support
+function handleCanvasClick(){
+  if(!running)return;
+  
+  // Handle building mode
+  if(BUILD_SYSTEM.active){
+    BUILD_SYSTEM.placeObject();
+    return;
   }
   
   // Regular attack
   attack();
-});
+}
 
-// Add drag and drop to hotbar slots
+document.getElementById('canvas').addEventListener('click',handleCanvasClick);
 document.querySelectorAll('.hs').forEach((slot,i)=>{
+  // Direct click for slot selection
+  slot.addEventListener('click',(e)=>{
+    e.stopPropagation(); // Prevent event bubbling
+    if(!running || !S.p) return;
+    
+    if(S.p.hsel === i && i !== 0){
+      // Double-click on same slot (except hand) moves item to inventory
+      moveFromHotbarToInventory(i);
+    } else {
+      // Select the slot
+      selectHotbarSlot(i, 'ui_click');
+    }
+  });
+  
   slot.addEventListener('dragstart',(e)=>{
     if(i===0)return; // Can't drag hand slot
+    
+    const item = S.p.hotbar[i];
+    if (!DRAG_DROP_SYSTEM.startDrag('hotbar', i, item, slot)) {
+      e.preventDefault();
+      return;
+    }
+    
     e.dataTransfer.effectAllowed='move';
-    draggedItem={type:'hotbar',index:i,item:S.p.hotbar[i]};
-    draggedFrom='hotbar';
-    slot.classList.add('dragging');
   });
   
   slot.addEventListener('dragend',()=>{
-    slot.classList.remove('dragging');
-    draggedItem=null;
-    draggedFrom=null;
+    DRAG_DROP_SYSTEM.endDrag();
   });
   
   slot.addEventListener('dragover',(e)=>{
@@ -2153,23 +2952,20 @@ document.querySelectorAll('.hs').forEach((slot,i)=>{
   slot.addEventListener('drop',(e)=>{
     e.preventDefault();
     slot.classList.remove('dragging');
-    if(!draggedItem || i===0)return;
     
-    handleDrop(draggedItem,{type:'hotbar',index:i});
+    DRAG_DROP_SYSTEM.executeDrop('hotbar', i);
   });
 });
 
-// Add drag and drop to inventory slots
-document.addEventListener('dragend',()=>{
-  document.querySelectorAll('.is').forEach(slot=>slot.classList.remove('dragging'));
-  draggedItem=null;
-  draggedFrom=null;
-});
+// Update inventory drag handlers in updInv function
 document.addEventListener('mousemove',e=>{
   mouse={x:e.clientX,y:e.clientY};
   if(!S.p||!running)return;
   const cv=document.getElementById('canvas'),r=cv.getBoundingClientRect();
   S.p.ang=Math.atan2(e.clientY-r.top-(S.p.y-S.cam.y),e.clientX-r.left-(S.p.x-S.cam.x));
+  
+  // Update building ghost position
+  BUILD_SYSTEM.updateGhost(e.clientX, e.clientY);
 });
 document.getElementById('nickname')?.addEventListener('input',sendHello);
 
