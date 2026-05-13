@@ -32,6 +32,7 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .hs.active{border-color:var(--green);box-shadow:0 0 8px rgba(74,222,128,0.3);}
 .hs:hover{border-color:var(--blue);}
 .hs.dragging{opacity:0.5;border-color:var(--yellow);}
+.hs.drag-over{border-color:var(--orange);box-shadow:0 0 8px rgba(251,146,60,0.3);}
 .hn{position:absolute;top:2px;left:2px;font-size:8px;color:var(--dim);pointer-events:none;}
 .hc{position:absolute;bottom:2px;right:2px;font-size:10px;color:var(--text);background:var(--bg);padding:1px 3px;border-radius:2px;pointer-events:none;}
 /* PANEL BUTTONS */
@@ -401,6 +402,12 @@ function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊',nu
 
 // Add resources with per-slot stacking and overflow
 function addResource(player, resourceType, amount){
+  // Validate input
+  if(!resourceType || amount <= 0 || !Number.isFinite(amount)){
+    console.warn('[STACK] Invalid addResource call:', resourceType, amount);
+    return false;
+  }
+  
   const hotbar=playerHotbar(player);
   const maxStack=STACK_LIMITS[resourceType]||20;
   let remaining=amount;
@@ -413,6 +420,12 @@ function addResource(player, resourceType, amount){
       const add=Math.min(remaining,space);
       s.amount+=add;
       remaining-=add;
+      
+      // Validate stack doesn't exceed max
+      if(s.amount > maxStack){
+        console.warn('[STACK] Stack overflow detected, clamping:', s.amount, '->', maxStack);
+        s.amount = maxStack;
+      }
     }
   }
 
@@ -438,6 +451,48 @@ function addResource(player, resourceType, amount){
   }
 
   return added>0;
+}
+
+// Validate and sanitize hotbar stacks
+function validateHotbarStacks(player){
+  const hotbar=playerHotbar(player);
+  let fixed=false;
+  
+  for(let i=1;i<hotbar.length;i++){
+    const s=hotbar[i];
+    
+    if(slotIsResource(s)){
+      // Check for negative amounts
+      if(s.amount <= 0){
+        console.warn('[STACK] Removing invalid stack with non-positive amount:', s);
+        hotbar[i]=null;
+        fixed=true;
+        continue;
+      }
+      
+      // Check for infinite stacks (exceeding max)
+      const maxStack=STACK_LIMITS[s.type]||20;
+      if(s.amount > maxStack){
+        console.warn('[STACK] Clamping oversized stack:', s.amount, '->', maxStack);
+        s.amount=maxStack;
+        fixed=true;
+      }
+      
+      // Check for invalid resource types
+      if(!RES_ICONS[s.type]){
+        console.warn('[STACK] Removing stack with invalid resource type:', s.type);
+        hotbar[i]=null;
+        fixed=true;
+      }
+    }
+  }
+  
+  if(fixed){
+    player.hotbar=hotbar;
+    syncResFromHotbar(player);
+  }
+  
+  return fixed;
 }
 
 // ═══ CRITICAL BOOT SYSTEMS - MUST BE DECLARED FIRST ═══
@@ -500,6 +555,10 @@ function updateHotbarWithResources(){
 
   S.p.hotbar = hotbar;
   syncResFromHotbar(S.p);
+  
+  // Validate stacks to prevent corruption
+  validateHotbarStacks(S.p);
+  
   updateHotbar();
 }
 
@@ -541,7 +600,7 @@ function moveFromHotbarToInventory(slotIndex){
 }
 
 // Drop resources on ground — removes from hotbar stacks last-to-first
-function dropResources(player, resourceType, amount){
+function dropResources(player, resourceType, amount, offsetX=0, offsetY=0){
   const hotbar=playerHotbar(player);
   const res=playerRes(player);
   const total=res[resourceType]||0;
@@ -565,11 +624,15 @@ function dropResources(player, resourceType, amount){
 
   const icon=RES_ICONS[resourceType]||'📦';
   S.loot.push({
-    x:player.x,y:player.y,
+    x:player.x+offsetX,
+    y:player.y+offsetY,
     em:icon,
     n:resourceType.charAt(0).toUpperCase()+resourceType.slice(1),
     a:toDrop,
-    isResource:true
+    isResource:true,
+    pickupImmunity:1500, // 1.5 seconds immunity
+    spawnTime:Date.now(),
+    despawnTime:Date.now()+60000 // 60 seconds to despawn
   });
 
   glog(`Dropped ${toDrop} ${icon} ${resourceType}`,'');
@@ -924,6 +987,11 @@ function handleNetMessage(msg){
     const host=S.p,guest=S.p2;
     if(guest){S.p=guest;S.remotePlayer=host;}
     else S.remotePlayer=null;
+    
+    // Validate hotbar stacks after network sync to prevent corruption
+    validateHotbarStacks(S.p);
+    if(S.p2) validateHotbarStacks(S.p2);
+    
     NET.started=true;
     showGameUi();
     resizeCanvases();
@@ -1238,6 +1306,18 @@ function update(dt){
   // Auto-pick loot
   for(let i=S.loot.length-1;i>=0;i--){
     const l=S.loot[i];
+    
+    // Check despawn timer
+    if(l.despawnTime && Date.now() > l.despawnTime){
+      S.loot.splice(i,1);
+      continue;
+    }
+    
+    // Check pickup immunity
+    if(l.pickupImmunity && Date.now() - (l.spawnTime||Date.now()) < l.pickupImmunity){
+      continue;
+    }
+    
     if(alivePlayers().some(pl=>Math.hypot(l.x-pl.x,l.y-pl.y)<32)){
       const picker=alivePlayers().find(pl=>Math.hypot(l.x-pl.x,l.y-pl.y)<32);
       if(!picker)continue;
@@ -1298,19 +1378,21 @@ function waveAlert(txt){
 // ═══ LOOT ═══
 function dropLoot(x,y){
   const v=Math.random();
-  if(v<.5)      S.loot.push({x,y,em:'🌿',n:'Food', a:1+~~(Math.random()*2)});
-  else if(v<.75)S.loot.push({x,y,em:'🪵',n:'Wood', a:2});
-  else if(v<.9) S.loot.push({x,y,em:'⚙️',n:'Metal',a:1});
+  const now=Date.now();
+  if(v<.5)      S.loot.push({x,y,em:'🌿',n:'Food', a:1+~~(Math.random()*2), isResource:true, pickupImmunity:1500, spawnTime:now, despawnTime:now+60000});
+  else if(v<.75)S.loot.push({x,y,em:'🪵',n:'Wood', a:2, isResource:true, pickupImmunity:1500, spawnTime:now, despawnTime:now+60000});
+  else if(v<.9) S.loot.push({x,y,em:'⚙️',n:'Metal',a:1, isResource:true, pickupImmunity:1500, spawnTime:now, despawnTime:now+60000});
 }
 
 function dropBossLoot(x,y){
   // Boss drops rare items and lots of resources
-  S.loot.push({x:x,y:y,em:'⚙️',n:'Metal',a:5+~~(Math.random()*5)});
-  S.loot.push({x:x,y:y-20,em:'🪵',n:'Wood',a:8+~~(Math.random()*8)});
-  S.loot.push({x:x+20,y:y,em:'🌿',n:'Food',a:6+~~(Math.random()*4)});
+  const now=Date.now();
+  S.loot.push({x:x,y:y,em:'⚙️',n:'Metal',a:5+~~(Math.random()*5), isResource:true, pickupImmunity:1500, spawnTime:now, despawnTime:now+60000});
+  S.loot.push({x:x,y:y-20,em:'🪵',n:'Wood',a:8+~~(Math.random()*8), isResource:true, pickupImmunity:1500, spawnTime:now, despawnTime:now+60000});
+  S.loot.push({x:x+20,y:y,em:'🌿',n:'Food',a:6+~~(Math.random()*4), isResource:true, pickupImmunity:1500, spawnTime:now, despawnTime:now+60000});
   // Rare chance for special item
   if(Math.random()<0.3){
-    S.loot.push({x:x,y:y-40,em:'💎',n:'Gem',a:1});
+    S.loot.push({x:x,y:y-40,em:'💎',n:'Gem',a:1, isResource:true, pickupImmunity:1500, spawnTime:now, despawnTime:now+60000});
     glog('Rare gem dropped!','good');
   }
 }
@@ -1548,6 +1630,9 @@ function craft(id,player=S.p){
   }
   player.hotbar=hotbar;
   syncResFromHotbar(player);
+  
+  // Validate stacks after crafting to prevent corruption
+  validateHotbarStacks(player);
 
   if(rec.place!==undefined)placeObj(rec.place,rec.em,player);
   else if(rec.effect==='inventory'){
@@ -3183,46 +3268,62 @@ function dropResourceMenu(){
 
 function dropItemMenu(){
   const hotbar=playerHotbar(S.p);
-  const bag=playerBag(S.p);
-  const items=[];
-
-  for(let i=1;i<hotbar.length;i++){
-    const s=hotbar[i];
-    if(!slotEmpty(s)){
-      const icon=slotIcon(s);
-      const nameMap={'🪵':'Wood','🪨':'Stone','🌿':'Food','⚙️':'Metal','🪓':'Hatchet','⛏':'Pickaxe','🏹':'Bow','🩹':'Bandage','🕯':'Torch'};
-      items.push({src:'hotbar',index:i,name:nameMap[icon]||'Item',em:icon,slot:s});
-    }
-  }
-
-  bag.forEach((item,i)=>{
-    if(item) items.push({src:'inventory',index:i,name:item.name,em:item.em,c:item.c||1});
-  });
-
-  if(items.length===0){
-    glog('No items to drop!','warn');
+  const slotIndex = S.p.hsel || 0;
+  
+  // Cannot drop from hand slot (index 0)
+  if(slotIndex === 0){
+    glog('Cannot drop from hand slot!','warn');
     return;
   }
-
-  const d=items[0];
-
-  if(d.src==='hotbar'){
-    if(slotIsResource(d.slot)){
-      const dropAmt=Math.min(10,d.slot.amount);
-      if(dropAmt>0) dropResources(S.p, d.slot.type, dropAmt);
-    } else {
-      hotbar[d.index]=null;
-      S.p.hotbar=hotbar;
-      updHotbar();
-      glog(`Dropped ${d.em} from hotbar`,'');
+  
+  const s = hotbar[slotIndex];
+  
+  if(slotEmpty(s)){
+    glog('Selected slot is empty!','warn');
+    return;
+  }
+  
+  const icon = slotIcon(s);
+  
+  // Calculate offset in direction player is facing
+  const angle = S.p.ang || 0;
+  const offsetDist = 30;
+  const offsetX = Math.cos(angle) * offsetDist;
+  const offsetY = Math.sin(angle) * offsetDist;
+  
+  if(slotIsResource(s)){
+    // Drop resource stack
+    const dropAmt = Math.min(10, s.amount);
+    if(dropAmt > 0){
+      dropResources(S.p, s.type, dropAmt, offsetX, offsetY);
+      glog(`Press Q again to drop more ${icon}`,'');
     }
   } else {
-    bag.splice(d.index,1);
-    updInv();
-    glog(`Dropped ${d.em} from inventory`,'');
+    // Drop tool/weapon/item
+    const nameMap={'🪓':'Hatchet','⛏':'Pickaxe','🏹':'Bow','🩹':'Bandage','🕯':'Torch','⚔️':'Sword','🛡️':'Shield','🦺':'Armor','🏥':'Medkit','🏮':'Lantern','🧭':'Compass','🎣':'Fishing Rod'};
+    const itemName = nameMap[icon] || 'Item';
+    
+    // Remove from hotbar
+    hotbar[slotIndex] = null;
+    S.p.hotbar = hotbar;
+    syncResFromHotbar(S.p);
+    
+    // Create world entity
+    S.loot.push({
+      x: S.p.x + offsetX,
+      y: S.p.y + offsetY,
+      em: icon,
+      n: itemName,
+      a: 1,
+      isResource: false,
+      pickupImmunity: 1500,
+      spawnTime: Date.now(),
+      despawnTime: Date.now() + 60000
+    });
+    
+    updateHotbar();
+    glog(`Dropped ${icon} ${itemName}`,'');
   }
-
-  glog('Press Q again to drop more items','');
 }
 
 function respawn(){document.getElementById('dscr').style.display='none';initAndStart();}
@@ -3322,8 +3423,105 @@ function handleCanvasClick(){
 }
 
 document.getElementById('canvas').addEventListener('click',handleCanvasClick);
-// Update hotbar drag handlers to use new system
+
+// Simple hotbar drag & drop controller
+const HOTBAR_DRAG = {
+  sourceSlot: null,
+  sourceItem: null,
+  isDragging: false,
+  
+  startDrag(slotIndex) {
+    const hotbar = playerHotbar(S.p);
+    const slot = hotbar[slotIndex];
+    
+    // Cannot drag from hand slot or empty slot
+    if(slotIndex === 0 || slotEmpty(slot)){
+      return false;
+    }
+    
+    this.sourceSlot = slotIndex;
+    this.sourceItem = slot;
+    this.isDragging = true;
+    
+    return true;
+  },
+  
+  endDrag() {
+    this.sourceSlot = null;
+    this.sourceItem = null;
+    this.isDragging = false;
+  },
+  
+  handleDrop(targetSlot) {
+    if(!this.isDragging || this.sourceSlot === null){
+      return false;
+    }
+    
+    // Cannot drop on hand slot
+    if(targetSlot === 0){
+      glog('Cannot drop on hand slot!', 'warn');
+      this.endDrag();
+      return false;
+    }
+    
+    // Cannot drop on same slot
+    if(targetSlot === this.sourceSlot){
+      this.endDrag();
+      return false;
+    }
+    
+    const hotbar = playerHotbar(S.p);
+    const sourceItem = hotbar[this.sourceSlot];
+    const targetItem = hotbar[targetSlot];
+    
+    // Handle resource stack merging
+    if(slotIsResource(sourceItem) && slotIsResource(targetItem) && sourceItem.type === targetItem.type){
+      const maxStack = STACK_LIMITS[sourceItem.type] || 20;
+      const space = maxStack - targetItem.amount;
+      
+      if(space > 0){
+        // Merge as much as possible
+        const toMove = Math.min(sourceItem.amount, space);
+        targetItem.amount += toMove;
+        sourceItem.amount -= toMove;
+        
+        if(sourceItem.amount <= 0){
+          hotbar[this.sourceSlot] = null;
+        }
+        
+        S.p.hotbar = hotbar;
+        syncResFromHotbar(S.p);
+        updateHotbar();
+        this.endDrag();
+        return true;
+      }
+      // If no space, fall through to swap
+    }
+    
+    // Handle swap
+    if(!slotEmpty(targetItem)){
+      // Both slots have items - swap them
+      hotbar[this.sourceSlot] = targetItem;
+      hotbar[targetSlot] = sourceItem;
+    } else {
+      // Target is empty - move item
+      hotbar[targetSlot] = sourceItem;
+      hotbar[this.sourceSlot] = null;
+    }
+    
+    S.p.hotbar = hotbar;
+    syncResFromHotbar(S.p);
+    updateHotbar();
+    
+    this.endDrag();
+    return true;
+  }
+};
+
+// Setup hotbar drag & drop handlers
 document.querySelectorAll('.hs').forEach((slot,i)=>{
+  slot.draggable = true;
+  
   // Direct click for slot selection
   slot.addEventListener('click',(e)=>{
     e.stopPropagation(); // Prevent event bubbling
@@ -3338,8 +3536,45 @@ document.querySelectorAll('.hs').forEach((slot,i)=>{
     }
   });
   
-  // Remove old drag handlers - will be set up by INVENTORY_MANAGER
-  // The new system will handle all drag events through setupSlotDragEvents
+  // Drag start
+  slot.addEventListener('dragstart', (e) => {
+    if(!running || !S.p) return;
+    e.preventDefault();
+    
+    if(HOTBAR_DRAG.startDrag(i)){
+      slot.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+  });
+  
+  // Drag over
+  slot.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    slot.classList.add('drag-over');
+  });
+  
+  // Drag leave
+  slot.addEventListener('dragleave', () => {
+    slot.classList.remove('drag-over');
+  });
+  
+  // Drop
+  slot.addEventListener('drop', (e) => {
+    e.preventDefault();
+    slot.classList.remove('drag-over');
+    
+    if(HOTBAR_DRAG.handleDrop(i)){
+      // Drop successful
+    }
+  });
+  
+  // Drag end
+  slot.addEventListener('dragend', () => {
+    slot.classList.remove('dragging');
+    slot.classList.remove('drag-over');
+    HOTBAR_DRAG.endDrag();
+  });
 });
 
 // Update inventory drag handlers in updInv function
