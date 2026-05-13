@@ -461,21 +461,37 @@ function updateHotbarWithResources(){
   const hotbar = playerHotbar(S.p);
   const res = playerRes(S.p);
   const resourceIcons = { wood: '🪵', stone: '🪨', food: '🌿', metal: '⚙️' };
-  
-  // Auto-fill empty hotbar slots with resources (except slot 0 - hand)
-  let slotIndex = 1; // Start from slot 1 (skip hand)
-  
-  for (const [resourceType, amount] of Object.entries(res)) {
-    if (amount > 0 && slotIndex < hotbar.length) {
-      const icon = resourceIcons[resourceType];
-      if (icon && (!hotbar[slotIndex] || hotbar[slotIndex] === '')) {
-        hotbar[slotIndex] = icon;
-        S.p.hotbar = hotbar;
-        slotIndex++;
+  const iconToResource = {};
+  for (const [type, icon] of Object.entries(resourceIcons)) iconToResource[icon] = type;
+
+  // Track which resources already have a hotbar slot
+  const representedResources = new Set();
+  for (let i = 1; i < hotbar.length; i++) {
+    const resType = iconToResource[hotbar[i]];
+    if (resType) {
+      if ((res[resType] || 0) > 0) {
+        representedResources.add(resType);
+      } else {
+        hotbar[i] = ''; // Clear slot for depleted resources
       }
     }
   }
-  
+
+  // Place unrepresented resources into empty slots
+  for (const [resourceType, amount] of Object.entries(res)) {
+    if (amount <= 0 || representedResources.has(resourceType)) continue;
+    const icon = resourceIcons[resourceType];
+    if (!icon) continue;
+
+    for (let i = 1; i < hotbar.length; i++) {
+      if (!hotbar[i] || hotbar[i] === '') {
+        hotbar[i] = icon;
+        break;
+      }
+    }
+  }
+
+  S.p.hotbar = hotbar;
   // Update hotbar UI immediately
   updateHotbar();
 }
@@ -550,6 +566,10 @@ function dropResources(player, resourceType, amount){
   });
   
   glog(`Dropped ${available} ${icons[resourceType]} ${resourceType}`,'');
+
+  // Sync hotbar after resource count change
+  if(player===S.p) updateHotbarWithResources();
+
   return true;
 }
 
@@ -1474,7 +1494,7 @@ function useItem(){
   
   updateHUD();
   updInv();
-  updHotbar();
+  updateHotbarWithResources();
 }
 
 // ═══ CRAFTING ═══
@@ -1534,7 +1554,7 @@ function craft(id,player=S.p){
       if(existing)existing.c++;else bag.push({em:rec.em,name:rec.name,c:1});
     }
     
-    if(player===S.p)updHotbar();
+    if(player===S.p) updateHotbarWithResources();
   }
   gainXP(15,player);if(player===S.p)glog(`Crafted ${rec.em} ${rec.name}`,'good');
   if(player===S.p){updCraft();updInv();updateHUD();}
@@ -3173,11 +3193,19 @@ function dropItemMenu(){
   const dropAmount=itemToDrop.c||1;
   
   if(itemToDrop.type==='hotbar'){
-    // Remove from hotbar
-    hotbar[itemToDrop.index]='';
-    S.p.hotbar=hotbar;
-    updHotbar();
-    glog(`Dropped ${itemToDrop.em} from hotbar`,'');
+    // Check if this is a resource icon — drop via dropResources so counts stay in sync
+    const resourceMap={'🪵':'wood','🪨':'stone','🌿':'food','⚙️':'metal'};
+    const resType=resourceMap[itemToDrop.em];
+    if(resType){
+      const dropAmt=Math.min(10, playerRes(S.p)[resType]||0);
+      if(dropAmt>0) dropResources(S.p, resType, dropAmt);
+    } else {
+      // Non-resource item: just clear the slot
+      hotbar[itemToDrop.index]='';
+      S.p.hotbar=hotbar;
+      updHotbar();
+      glog(`Dropped ${itemToDrop.em} from hotbar`,'');
+    }
   } else {
     // Remove from inventory
     bag.splice(itemToDrop.index,1);
