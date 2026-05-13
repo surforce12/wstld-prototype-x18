@@ -294,11 +294,34 @@ const WEATHER={CLEAR:0,RAIN:1,SNOW:2,FOG:3,STORM:4};
 const SOLID=new Set([T.WATER,T.TREE,T.ROCK,T.ORE]);
 const TCOL={0:'#1a2e10',1:'#0d2008',2:'#2a2520',3:'#0a1a2a',4:'#2a2010',5:'#1a1520',6:'#162a08',7:'#3a2000',8:'#2a2520',9:'#221a10',10:'#1a1800'};
 
-// Resource stacking limits
-const STACK_SIZES={
-  wood:20, stone:40, food:20, metal:10,
+// Per-slot stack limits for hotbar
+const STACK_LIMITS={
+  wood:40, stone:30, metal:20, food:25,
   gem:5, 'rare-wood':10, 'rare-stone':20
 };
+
+// Resource icon ↔ type mappings
+const RES_ICONS={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️',gem:'💎'};
+const ICON_TO_RES={};
+for(const[t,ic]of Object.entries(RES_ICONS)) ICON_TO_RES[ic]=t;
+
+// Hotbar slot helpers — work with both old strings and new objects
+function slotIcon(s){if(!s)return '';return typeof s==='string'?s:(s.icon||'');}
+function slotEmpty(s){return !s||s===''||(typeof s==='object'&&!s.icon);}
+function slotIsResource(s){return s&&typeof s==='object'&&s.type&&s.type!=='tool'&&s.type!=='hand';}
+function makeResSlot(type,amount){return{icon:RES_ICONS[type],type,amount};}
+function makeToolSlot(icon,name){return{icon,type:'tool',name};}
+
+// Recalculate player.res totals from hotbar slot amounts
+function syncResFromHotbar(player){
+  const res=playerRes(player);
+  for(const t of Object.keys(RES_ICONS)) res[t]=0;
+  const hb=playerHotbar(player);
+  for(let i=1;i<hb.length;i++){
+    const s=hb[i];
+    if(slotIsResource(s)) res[s.type]=(res[s.type]||0)+s.amount;
+  }
+}
 
 // ═══ STATE ═══
 let S={},keys={},mouse={x:0,y:0},running=false,last=0;
@@ -355,7 +378,7 @@ function sendHello(){
 function playerLoadout(){
   return{
     res:{wood:0,stone:0,food:0,metal:0},
-    bag:[],hotbar:['✊','','','','','','','','',''],hsel:0,
+    bag:[],hotbar:['✊',null,null,null,null,null,null,null,null,null],hsel:0,
     invSize:12 // Base inventory size, can be increased with backpack
   };
 }
@@ -374,63 +397,71 @@ function makePlayer(name){
 
 function playerRes(player=S.p){return player.res||(player.res={wood:0,stone:0,food:0,metal:0});}
 function playerBag(player=S.p){return player.bag||(player.bag=[]);}
-function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊','','','','','','','','','']);}
+function playerHotbar(player=S.p){return player.hotbar||(player.hotbar=['✊',null,null,null,null,null,null,null,null,null]);}
 
-// Add resources with stacking - add to inventory directly
+// Add resources with per-slot stacking and overflow
 function addResource(player, resourceType, amount){
-  const res=playerRes(player);
-  const current=res[resourceType]||0;
-  res[resourceType]=current+amount;
-  
-  // Update UI immediately
-  if(player===S.p){
-    updateHotbarWithResources();
-    updateHUD(); // Update resource display in HUD
-    
-    const icons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
-    const icon=icons[resourceType]||'📦';
-    glog(`+${amount} ${icon} ${resourceType}`,'good');
+  const hotbar=playerHotbar(player);
+  const maxStack=STACK_LIMITS[resourceType]||20;
+  let remaining=amount;
+
+  // Pass 1: fill existing partial stacks of this type
+  for(let i=1;i<hotbar.length&&remaining>0;i++){
+    const s=hotbar[i];
+    if(slotIsResource(s)&&s.type===resourceType&&s.amount<maxStack){
+      const space=maxStack-s.amount;
+      const add=Math.min(remaining,space);
+      s.amount+=add;
+      remaining-=add;
+    }
   }
-  
-  return true;
+
+  // Pass 2: spill into empty slots
+  for(let i=1;i<hotbar.length&&remaining>0;i++){
+    if(slotEmpty(hotbar[i])){
+      const add=Math.min(remaining,maxStack);
+      hotbar[i]=makeResSlot(resourceType,add);
+      remaining-=add;
+    }
+  }
+
+  const added=amount-remaining;
+  player.hotbar=hotbar;
+  syncResFromHotbar(player);
+
+  if(player===S.p){
+    updateHotbar();
+    updateHUD();
+    const icon=RES_ICONS[resourceType]||'📦';
+    if(added>0) glog(`+${added} ${icon} ${resourceType}`,'good');
+    if(remaining>0) glog(`No hotbar space! ${remaining} ${icon} lost`,'warn');
+  }
+
+  return added>0;
 }
 
 // ═══ CRITICAL BOOT SYSTEMS - MUST BE DECLARED FIRST ═══
 // Function declarations are hoisted - safe to use before definition
 function updateHotbar() {
   const hotbar = playerHotbar(S.p);
-  const res = playerRes(S.p);
-  
-  // Update each hotbar slot
-  document.querySelectorAll('.hs').forEach((slot, i) => {
-    const item = hotbar[i];
-    
+
+  document.querySelectorAll('.hs').forEach((el, i) => {
+    const s = hotbar[i];
+    const icon = slotIcon(s);
+
     if (i === 0) {
-      // Hand slot - always show hand
-      slot.innerHTML = `<span class="hn">${i + 1}</span>${item || '✊'}`;
-    } else if (item && item !== '') {
-      // Check if this is a resource and show count
-      let displayContent = `<span class="hn">${i + 1}</span>${item}`;
-      
-      // Show resource count if this slot contains a resource
-      if (item === '🪵' && res.wood > 0) {
-        displayContent += `<span class="hc">${res.wood}</span>`;
-      } else if (item === '🪨' && res.stone > 0) {
-        displayContent += `<span class="hc">${res.stone}</span>`;
-      } else if (item === '🌿' && res.food > 0) {
-        displayContent += `<span class="hc">${res.food}</span>`;
-      } else if (item === '⚙️' && res.metal > 0) {
-        displayContent += `<span class="hc">${res.metal}</span>`;
+      el.innerHTML = `<span class="hn">1</span>${icon || '✊'}`;
+    } else if (!slotEmpty(s)) {
+      let html = `<span class="hn">${i + 1}</span>${icon}`;
+      if (slotIsResource(s) && s.amount > 0) {
+        html += `<span class="hc">${s.amount}</span>`;
       }
-      
-      slot.innerHTML = displayContent;
+      el.innerHTML = html;
     } else {
-      // Empty slot
-      slot.innerHTML = `<span class="hn">${i + 1}</span>`;
+      el.innerHTML = `<span class="hn">${i + 1}</span>`;
     }
-    
-    // Update active selection
-    slot.classList.toggle('active', i === (S.p.hsel || 0));
+
+    el.classList.toggle('active', i === (S.p.hsel || 0));
   });
 }
 
@@ -443,7 +474,7 @@ function updHotbar() {
 let INVENTORY_MANAGER = {
   init: function(player) {
     console.log('[INVENTORY] Temporary init called');
-    if (!player.hotbar) player.hotbar = ['✊', '', '', '', '', '', '', '', ''];
+    if (!player.hotbar) player.hotbar = ['✊',null,null,null,null,null,null,null,null,null];
     if (!player.bag) player.bag = [];
   }
 };
@@ -456,119 +487,93 @@ window.INVENTORY_MANAGER = INVENTORY_MANAGER;
 console.log("[DEBUG] updHotbar availability:", typeof updHotbar);
 console.log("[DEBUG] updateHotbar availability:", typeof updateHotbar);
 
-// Update hotbar to show resources from player state
+// Sync hotbar display — clear depleted resource slots and update UI
 function updateHotbarWithResources(){
   const hotbar = playerHotbar(S.p);
-  const res = playerRes(S.p);
-  const resourceIcons = { wood: '🪵', stone: '🪨', food: '🌿', metal: '⚙️' };
-  const iconToResource = {};
-  for (const [type, icon] of Object.entries(resourceIcons)) iconToResource[icon] = type;
 
-  // Track which resources already have a hotbar slot
-  const representedResources = new Set();
+  // Remove empty resource stacks (amount <= 0)
   for (let i = 1; i < hotbar.length; i++) {
-    const resType = iconToResource[hotbar[i]];
-    if (resType) {
-      if ((res[resType] || 0) > 0) {
-        representedResources.add(resType);
-      } else {
-        hotbar[i] = ''; // Clear slot for depleted resources
-      }
-    }
-  }
-
-  // Place unrepresented resources into empty slots
-  for (const [resourceType, amount] of Object.entries(res)) {
-    if (amount <= 0 || representedResources.has(resourceType)) continue;
-    const icon = resourceIcons[resourceType];
-    if (!icon) continue;
-
-    for (let i = 1; i < hotbar.length; i++) {
-      if (!hotbar[i] || hotbar[i] === '') {
-        hotbar[i] = icon;
-        break;
-      }
+    if (slotIsResource(hotbar[i]) && hotbar[i].amount <= 0) {
+      hotbar[i] = null;
     }
   }
 
   S.p.hotbar = hotbar;
-  // Update hotbar UI immediately
+  syncResFromHotbar(S.p);
   updateHotbar();
 }
 
-// Add resource to hotbar if empty slots available
+// Add resource to hotbar — delegates to addResource for stack-aware placement
 function addToHotbar(player, resourceType, amount){
-  const hotbar=playerHotbar(player);
-  const icons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️'};
-  const icon=icons[resourceType]||'📦';
-  
-  // Find empty hotbar slot (slot 0 is hand)
-  for(let i=1;i<hotbar.length;i++){
-    if(!hotbar[i] || hotbar[i] === ''){
-      hotbar[i]=icon;
-      player.hotbar=hotbar;
-      if(player===S.p)updHotbar();
-      glog(`+${icon} added to hotbar`,'good');
-      return true;
-    }
-  }
-  return false;
+  return addResource(player, resourceType, amount||1);
 }
 
 // Move item from hotbar to inventory
 function moveFromHotbarToInventory(slotIndex){
   const hotbar=playerHotbar(S.p);
-  const item=hotbar[slotIndex];
-  
-  if(!item || item === '' || slotIndex === 0){
+  const s=hotbar[slotIndex];
+
+  if(slotEmpty(s) || slotIndex === 0){
     glog('Cannot move hand slot!','warn');
     return;
   }
-  
+
+  const icon=slotIcon(s);
+  const nameMap={'🪵':'Wood','🪨':'Stone','🌿':'Food','⚙️':'Metal','🪓':'Hatchet','⛏':'Pickaxe','🏹':'Bow'};
+  const itemName=nameMap[icon]||'Item';
+  const count=slotIsResource(s)?s.amount:1;
+
   const bag=playerBag(S.p);
-  const icons={'🪵':'Wood','🪨':'Stone','🌿':'Food','⚙️':'Metal','🪓':'Hatchet','⛏':'Pickaxe','🏹':'Bow'};
-  const itemName=icons[item]||'Item';
-  
-  // Add to inventory
   const existing=bag.find(i=>i.name===itemName);
   if(existing){
-    existing.c=(existing.c||1)+1;
+    existing.c=(existing.c||1)+count;
   } else {
-    bag.push({em:item,name:itemName,c:1});
+    bag.push({em:icon,name:itemName,c:count});
   }
-  
-  // Remove from hotbar
-  hotbar[slotIndex]='';
+
+  hotbar[slotIndex]=null;
   S.p.hotbar=hotbar;
-  
+  syncResFromHotbar(S.p);
+
   updHotbar();
   updInv();
-  glog(`Moved ${item} to inventory`,'good');
+  glog(`Moved ${icon} to inventory`,'good');
 }
 
-// Drop resources on ground
+// Drop resources on ground — removes from hotbar stacks last-to-first
 function dropResources(player, resourceType, amount){
+  const hotbar=playerHotbar(player);
   const res=playerRes(player);
-  const available=Math.min(amount, res[resourceType]||0);
-  if(available<=0)return false;
-  
-  res[resourceType]-=available;
-  
-  // Create loot pile on ground
-  const icons={wood:'🪵',stone:'🪨',food:'🌿',metal:'⚙️',gem:'💎'};
+  const total=res[resourceType]||0;
+  const toDrop=Math.min(amount,total);
+  if(toDrop<=0)return false;
+
+  // Remove from hotbar stacks in reverse order (drain last partial stack first)
+  let left=toDrop;
+  for(let i=hotbar.length-1;i>=1&&left>0;i--){
+    const s=hotbar[i];
+    if(slotIsResource(s)&&s.type===resourceType){
+      const take=Math.min(left,s.amount);
+      s.amount-=take;
+      left-=take;
+      if(s.amount<=0) hotbar[i]=null;
+    }
+  }
+
+  player.hotbar=hotbar;
+  syncResFromHotbar(player);
+
+  const icon=RES_ICONS[resourceType]||'📦';
   S.loot.push({
-    x:player.x,
-    y:player.y,
-    em:icons[resourceType]||'📦',
+    x:player.x,y:player.y,
+    em:icon,
     n:resourceType.charAt(0).toUpperCase()+resourceType.slice(1),
-    a:available,
+    a:toDrop,
     isResource:true
   });
-  
-  glog(`Dropped ${available} ${icons[resourceType]} ${resourceType}`,'');
 
-  // Sync hotbar after resource count change
-  if(player===S.p) updateHotbarWithResources();
+  glog(`Dropped ${toDrop} ${icon} ${resourceType}`,'');
+  if(player===S.p) updateHotbar();
 
   return true;
 }
@@ -1461,25 +1466,25 @@ function attack(player=S.p){
 
 function useItem(){
   if (!S.p) return;
-  
+
   const hotbar = playerHotbar(S.p);
   const slotIndex = S.p.hsel || 0;
-  const item = hotbar[slotIndex];
-  
-  if (!item || slotIndex === 0) {
+  const s = hotbar[slotIndex];
+  const icon = slotIcon(s);
+
+  if (slotEmpty(s) || slotIndex === 0) {
     glog('No item to use!', 'warn');
     return;
   }
-  
-  const res = playerRes(S.p);
-  
-  // Handle different item types
-  if (item === '🌿' && res.food > 0) {
-    res.food--;
+
+  if (slotIsResource(s) && s.type === 'food' && s.amount > 0) {
+    s.amount--;
+    if (s.amount <= 0) hotbar[slotIndex] = null;
+    S.p.hotbar = hotbar;
+    syncResFromHotbar(S.p);
     S.p.hun = Math.min(100, S.p.hun + 25);
     glog('+25 🍖 Eaten', 'good');
-  } else if (item === '🩹') {
-    // Bandage from inventory (legacy support)
+  } else if (icon === '🩹') {
     const bag = playerBag(S.p);
     const bandageIndex = bag.findIndex(i => i.name === 'Bandage');
     if (bandageIndex >= 0) {
@@ -1489,12 +1494,12 @@ function useItem(){
       glog('+35 ❤ Healed', 'good');
     }
   } else {
-    glog(`Cannot use ${item}`, 'warn');
+    glog(`Cannot use ${icon}`, 'warn');
   }
-  
+
   updateHUD();
   updInv();
-  updateHotbarWithResources();
+  updateHotbar();
 }
 
 // ═══ CRAFTING ═══
@@ -1526,36 +1531,47 @@ function craft(id,player=S.p){
   if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'craft',id,name:localName('GUEST')});return;}
   const rec=REC[id],res=playerRes(player);
   for(const[k,v]of Object.entries(rec.cost))if((res[k]||0)<v){if(player===S.p)glog('Not enough resources!','warn');return;}
-  for(const[k,v]of Object.entries(rec.cost))res[k]-=v;
+
+  // Deduct costs from hotbar stacks
+  const hotbar=playerHotbar(player);
+  for(const[k,v]of Object.entries(rec.cost)){
+    let left=v;
+    for(let i=hotbar.length-1;i>=1&&left>0;i--){
+      const s=hotbar[i];
+      if(slotIsResource(s)&&s.type===k){
+        const take=Math.min(left,s.amount);
+        s.amount-=take;
+        left-=take;
+        if(s.amount<=0) hotbar[i]=null;
+      }
+    }
+  }
+  player.hotbar=hotbar;
+  syncResFromHotbar(player);
+
   if(rec.place!==undefined)placeObj(rec.place,rec.em,player);
   else if(rec.effect==='inventory'){
-    // Backpack increases inventory size
     player.invSize+=10;
     glog(`Inventory increased to ${player.invSize} slots!`,'good');
   } else {
-    // Add to hotbar or inventory
-    const hotbar = playerHotbar(player);
-    let addedToHotbar = false;
-    
-    // Try to add to empty hotbar slot first
+    // Add crafted item to hotbar as a tool slot
+    let addedToHotbar=false;
     for(let i=1;i<hotbar.length;i++){
-      if(!hotbar[i] || hotbar[i] === ''){
-        hotbar[i]=rec.em;
+      if(slotEmpty(hotbar[i])){
+        hotbar[i]=makeToolSlot(rec.em,rec.name);
         player.hotbar=hotbar;
-        addedToHotbar = true;
+        addedToHotbar=true;
         break;
       }
     }
-    
     if(!addedToHotbar){
-      // Add to inventory bag
-      const bag = playerBag(player);
+      const bag=playerBag(player);
       const existing=bag.find(i=>i.name===rec.name);
       if(existing)existing.c++;else bag.push({em:rec.em,name:rec.name,c:1});
     }
-    
-    if(player===S.p) updateHotbarWithResources();
   }
+
+  if(player===S.p) updateHotbar();
   gainXP(15,player);if(player===S.p)glog(`Crafted ${rec.em} ${rec.name}`,'good');
   if(player===S.p){updCraft();updInv();updateHUD();}
 }
@@ -2363,15 +2379,17 @@ INVENTORY_MANAGER = {
   
   // Load data from player object
   loadFromPlayer(player) {
-    // Load hotbar
-    const hotbarData = player.hotbar || ['✊', '', '', '', '', '', '', '', ''];
+    // Load hotbar — handles both old string and new object format
+    const hotbarData = player.hotbar || ['✊',null,null,null,null,null,null,null,null,null];
     hotbarData.forEach((itemData, index) => {
-      if (itemData && itemData !== '✊') {
-        const itemType = this.getItemTypeFromIcon(itemData);
-        if (itemType) {
-          const item = new InventoryItem(itemType, 1);
-          this.hotbar.addItem(item, index);
-        }
+      if (!itemData || itemData === '✊') return;
+      const icon = typeof itemData === 'string' ? itemData : (itemData.icon || '');
+      const qty = (itemData && typeof itemData === 'object' && itemData.amount) ? itemData.amount : 1;
+      if (!icon) return;
+      const itemType = this.getItemTypeFromIcon(icon);
+      if (itemType) {
+        const item = new InventoryItem(itemType, qty);
+        this.hotbar.addItem(item, index);
       }
     });
     
@@ -2390,12 +2408,14 @@ INVENTORY_MANAGER = {
   
   // Save data to player object
   saveToPlayer(player = S.p) {
-    // Save hotbar
+    // Save hotbar — preserve structured slot format
     player.hotbar = this.hotbar.slots.map(slot => {
       const item = slot.getItem();
-      if (!item) return '';
-      if (slot.index === 0) return '✊'; // Hand slot
-      return item.icon;
+      if (!item) return null;
+      if (slot.index === 0) return '✊';
+      const resType = ICON_TO_RES[item.icon];
+      if (resType) return makeResSlot(resType, item.quantity);
+      return makeToolSlot(item.icon, item.name);
     });
     
     // Save inventory
@@ -3165,54 +3185,43 @@ function dropItemMenu(){
   const hotbar=playerHotbar(S.p);
   const bag=playerBag(S.p);
   const items=[];
-  
-  // Collect items from hotbar (except hand slot)
+
   for(let i=1;i<hotbar.length;i++){
-    const item=hotbar[i];
-    if(item && item !== ''){
-      const icons={'🪵':'Wood','🪨':'Stone','🌿':'Food','⚙️':'Metal','🪓':'Hatchet','⛏':'Pickaxe','🏹':'Bow','🩹':'Bandage','🕯':'Torch'};
-      const itemName=icons[item]||'Item';
-      items.push({type:'hotbar',index:i,name:itemName,em:item});
+    const s=hotbar[i];
+    if(!slotEmpty(s)){
+      const icon=slotIcon(s);
+      const nameMap={'🪵':'Wood','🪨':'Stone','🌿':'Food','⚙️':'Metal','🪓':'Hatchet','⛏':'Pickaxe','🏹':'Bow','🩹':'Bandage','🕯':'Torch'};
+      items.push({src:'hotbar',index:i,name:nameMap[icon]||'Item',em:icon,slot:s});
     }
   }
-  
-  // Collect items from inventory
+
   bag.forEach((item,i)=>{
-    if(item){
-      items.push({type:'inventory',index:i,name:item.name,em:item.em,c:item.c||1});
-    }
+    if(item) items.push({src:'inventory',index:i,name:item.name,em:item.em,c:item.c||1});
   });
-  
+
   if(items.length===0){
     glog('No items to drop!','warn');
     return;
   }
-  
-  // Simple drop: drop first available item
-  const itemToDrop=items[0];
-  const dropAmount=itemToDrop.c||1;
-  
-  if(itemToDrop.type==='hotbar'){
-    // Check if this is a resource icon — drop via dropResources so counts stay in sync
-    const resourceMap={'🪵':'wood','🪨':'stone','🌿':'food','⚙️':'metal'};
-    const resType=resourceMap[itemToDrop.em];
-    if(resType){
-      const dropAmt=Math.min(10, playerRes(S.p)[resType]||0);
-      if(dropAmt>0) dropResources(S.p, resType, dropAmt);
+
+  const d=items[0];
+
+  if(d.src==='hotbar'){
+    if(slotIsResource(d.slot)){
+      const dropAmt=Math.min(10,d.slot.amount);
+      if(dropAmt>0) dropResources(S.p, d.slot.type, dropAmt);
     } else {
-      // Non-resource item: just clear the slot
-      hotbar[itemToDrop.index]='';
+      hotbar[d.index]=null;
       S.p.hotbar=hotbar;
       updHotbar();
-      glog(`Dropped ${itemToDrop.em} from hotbar`,'');
+      glog(`Dropped ${d.em} from hotbar`,'');
     }
   } else {
-    // Remove from inventory
-    bag.splice(itemToDrop.index,1);
+    bag.splice(d.index,1);
     updInv();
-    glog(`Dropped ${itemToDrop.em} from inventory`,'');
+    glog(`Dropped ${d.em} from inventory`,'');
   }
-  
+
   glog('Press Q again to drop more items','');
 }
 
@@ -3373,13 +3382,13 @@ function initInventorySystem(){
     } else {
       console.error('[BOOT] INVENTORY_MANAGER not available');
       // Fallback to basic initialization
-      if (!S.p.hotbar) S.p.hotbar = ['✊', '', '', '', '', '', '', '', ''];
+      if (!S.p.hotbar) S.p.hotbar = ['✊',null,null,null,null,null,null,null,null,null];
       if (!S.p.bag) S.p.bag = [];
     }
   } catch (error) {
     console.error('[BOOT] Failed to initialize inventory system:', error);
     // Basic fallback
-    if (!S.p.hotbar) S.p.hotbar = ['✊', '', '', '', '', '', '', '', ''];
+    if (!S.p.hotbar) S.p.hotbar = ['✊',null,null,null,null,null,null,null,null,null];
     if (!S.p.bag) S.p.bag = [];
   }
 }
@@ -3400,7 +3409,7 @@ function initPlayerState(player) {
     player.skillPoints = 0;
   }
   if (!player.hotbar) {
-    player.hotbar = ['✊', '', '', '', '', '', '', '', ''];
+    player.hotbar = ['✊',null,null,null,null,null,null,null,null,null];
   }
   if (!player.hsel && player.hsel !== 0) {
     player.hsel = 0;
