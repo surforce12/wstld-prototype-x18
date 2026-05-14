@@ -3424,18 +3424,20 @@ function handleCanvasClick(){
 
 document.getElementById('canvas').addEventListener('click',handleCanvasClick);
 
-// Simple hotbar drag & drop controller
+// Simple hotbar drag & drop controller using mouse events
 const HOTBAR_DRAG = {
   sourceSlot: null,
   sourceItem: null,
   isDragging: false,
+  dragElement: null,
   
-  startDrag(slotIndex) {
+  startDrag(slotIndex, element) {
     const hotbar = playerHotbar(S.p);
     const slot = hotbar[slotIndex];
     
     // Cannot drag from hand slot or empty slot
     if(slotIndex === 0 || slotEmpty(slot)){
+      console.log('[HOTBAR_DRAG] Cannot drag - slot 0 or empty, index:', slotIndex);
       return false;
     }
     
@@ -3443,22 +3445,60 @@ const HOTBAR_DRAG = {
     this.sourceItem = slot;
     this.isDragging = true;
     
+    // Create drag element that follows cursor
+    const icon = slotIcon(slot);
+    this.dragElement = document.createElement('div');
+    this.dragElement.textContent = icon;
+    this.dragElement.style.cssText = `
+      position: fixed;
+      font-size: 32px;
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0.8;
+      user-select: none;
+      transform: translate(-50%, -50%);
+    `;
+    document.body.appendChild(this.dragElement);
+    
+    // Position drag element at cursor
+    this.updateDragPosition(mouse.x, mouse.y);
+    
+    console.log('[HOTBAR_DRAG] Started drag from slot:', slotIndex);
     return true;
   },
   
+  updateDragPosition(x, y) {
+    if(this.dragElement){
+      this.dragElement.style.left = x + 'px';
+      this.dragElement.style.top = y + 'px';
+    }
+  },
+  
   endDrag() {
+    console.log('[HOTBAR_DRAG] Ended drag from slot:', this.sourceSlot);
+    
+    // Remove drag element
+    if(this.dragElement){
+      document.body.removeChild(this.dragElement);
+      this.dragElement = null;
+    }
+    
     this.sourceSlot = null;
     this.sourceItem = null;
     this.isDragging = false;
   },
   
   handleDrop(targetSlot) {
+    console.log('[HOTBAR_DRAG] handleDrop called, targetSlot:', targetSlot, 'sourceSlot:', this.sourceSlot, 'isDragging:', this.isDragging);
+    
     if(!this.isDragging || this.sourceSlot === null){
+      console.log('[HOTBAR_DRAG] Drop failed - not dragging or no source slot');
       return false;
     }
     
     // Cannot drop on hand slot
     if(targetSlot === 0){
+      console.log('[HOTBAR_DRAG] Drop rejected - target is hand slot');
       glog('Cannot drop on hand slot!', 'warn');
       this.endDrag();
       return false;
@@ -3466,6 +3506,7 @@ const HOTBAR_DRAG = {
     
     // Cannot drop on same slot
     if(targetSlot === this.sourceSlot){
+      console.log('[HOTBAR_DRAG] Drop rejected - same slot');
       this.endDrag();
       return false;
     }
@@ -3473,6 +3514,8 @@ const HOTBAR_DRAG = {
     const hotbar = playerHotbar(S.p);
     const sourceItem = hotbar[this.sourceSlot];
     const targetItem = hotbar[targetSlot];
+    
+    console.log('[HOTBAR_DRAG] Swapping items - source:', sourceItem, 'target:', targetItem);
     
     // Handle resource stack merging
     if(slotIsResource(sourceItem) && slotIsResource(targetItem) && sourceItem.type === targetItem.type){
@@ -3492,6 +3535,7 @@ const HOTBAR_DRAG = {
         S.p.hotbar = hotbar;
         syncResFromHotbar(S.p);
         updateHotbar();
+        console.log('[HOTBAR_DRAG] Stack merge successful, moved:', toMove);
         this.endDrag();
         return true;
       }
@@ -3503,10 +3547,12 @@ const HOTBAR_DRAG = {
       // Both slots have items - swap them
       hotbar[this.sourceSlot] = targetItem;
       hotbar[targetSlot] = sourceItem;
+      console.log('[HOTBAR_DRAG] Swapped items between slots');
     } else {
       // Target is empty - move item
       hotbar[targetSlot] = sourceItem;
       hotbar[this.sourceSlot] = null;
+      console.log('[HOTBAR_DRAG] Moved item to empty slot');
     }
     
     S.p.hotbar = hotbar;
@@ -3518,14 +3564,18 @@ const HOTBAR_DRAG = {
   }
 };
 
-// Setup hotbar drag & drop handlers
+// Setup hotbar drag & drop handlers using mouse events
 document.querySelectorAll('.hs').forEach((slot,i)=>{
-  slot.draggable = true;
-  
   // Direct click for slot selection
   slot.addEventListener('click',(e)=>{
     e.stopPropagation(); // Prevent event bubbling
     if(!running || !S.p) return;
+    
+    // Don't handle click if we just finished a drag operation
+    if(HOTBAR_DRAG.isDragging){
+      console.log('[HOTBAR] Click ignored - drag operation in progress');
+      return;
+    }
     
     if(S.p.hsel === i && i !== 0){
       // Double-click on same slot (except hand) moves item to inventory
@@ -3536,45 +3586,70 @@ document.querySelectorAll('.hs').forEach((slot,i)=>{
     }
   });
   
-  // Drag start
-  slot.addEventListener('dragstart', (e) => {
+  // Mouse down - start drag
+  slot.addEventListener('mousedown', (e) => {
+    if(e.button !== 0) return; // Only left mouse button
     if(!running || !S.p) return;
-    e.preventDefault();
     
-    if(HOTBAR_DRAG.startDrag(i)){
+    console.log('[HOTBAR] mousedown on slot:', i);
+    
+    if(HOTBAR_DRAG.startDrag(i, slot)){
       slot.classList.add('dragging');
-      e.dataTransfer.effectAllowed = 'move';
+      e.preventDefault(); // Prevent text selection
     }
   });
   
-  // Drag over
-  slot.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    slot.classList.add('drag-over');
+  // Mouse over - highlight as potential drop target
+  slot.addEventListener('mouseenter', () => {
+    if(HOTBAR_DRAG.isDragging && i !== HOTBAR_DRAG.sourceSlot){
+      slot.classList.add('drag-over');
+    }
   });
   
-  // Drag leave
-  slot.addEventListener('dragleave', () => {
+  // Mouse leave - remove highlight
+  slot.addEventListener('mouseleave', () => {
     slot.classList.remove('drag-over');
   });
   
-  // Drop
-  slot.addEventListener('drop', (e) => {
-    e.preventDefault();
+  // Mouse up - attempt drop
+  slot.addEventListener('mouseup', (e) => {
+    if(!HOTBAR_DRAG.isDragging) return;
+    
+    console.log('[HOTBAR] mouseup on slot:', i);
     slot.classList.remove('drag-over');
     
     if(HOTBAR_DRAG.handleDrop(i)){
-      // Drop successful
+      console.log('[HOTBAR] Drop successful on slot:', i);
+    } else {
+      console.log('[HOTBAR] Drop failed on slot:', i);
     }
-  });
-  
-  // Drag end
-  slot.addEventListener('dragend', () => {
+    
     slot.classList.remove('dragging');
-    slot.classList.remove('drag-over');
-    HOTBAR_DRAG.endDrag();
   });
+});
+
+// Global mouse move - update drag element position
+document.addEventListener('mousemove', (e) => {
+  if(HOTBAR_DRAG.isDragging){
+    HOTBAR_DRAG.updateDragPosition(e.clientX, e.clientY);
+  }
+});
+
+// Global mouse up fallback - cancel drag if released outside hotbar
+document.addEventListener('mouseup', (e) => {
+  if(HOTBAR_DRAG.isDragging){
+    const target = e.target;
+    const isHotbarSlot = target.classList.contains('hs');
+    
+    if(!isHotbarSlot){
+      console.log('[HOTBAR] Released outside hotbar - cancelling drag');
+      HOTBAR_DRAG.endDrag();
+      document.querySelectorAll('.hs').forEach(slot => {
+        slot.classList.remove('dragging');
+        slot.classList.remove('drag-over');
+      });
+    }
+  }
 });
 
 // Update inventory drag handlers in updInv function
