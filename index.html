@@ -66,6 +66,46 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 .cc{font-size:9px;color:var(--dim);}
 /* Inventory - REMOVED - hotbar-only system now */
 
+/* Crafting Container */
+.craft-container{display:flex;gap:8px;min-height:350px;}
+
+/* Category Sidebar */
+.craft-sidebar{display:flex;flex-direction:column;gap:4px;min-width:100px;}
+.craft-category{background:#0d1208;border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:10px;padding:8px 10px;cursor:pointer;border-radius:2px;transition:all .15s;text-align:left;}
+.craft-category:hover{border-color:var(--blue);color:var(--blue);}
+.craft-category.active{background:var(--gdim);border-color:var(--green);color:var(--green);}
+
+/* Recipe List */
+.craft-recipe-list{flex:1;display:flex;flex-direction:column;background:#0d1208;border:1px solid var(--border);border-radius:2px;min-width:140px;}
+.recipe-list-header{font-family:'Russo One',sans-serif;font-size:11px;letter-spacing:2px;color:var(--dim);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border);}
+.recipe-list-content{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:4px;}
+.recipe-item{background:#111510;border:1px solid var(--border);padding:8px 10px;border-radius:2px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px;}
+.recipe-item:hover{border-color:var(--blue);}
+.recipe-item.selected{border-color:var(--green);background:var(--gdim);}
+.recipe-item.locked{opacity:.5;cursor:not-allowed;}
+.recipe-icon{font-size:18px;}
+.recipe-name{font-size:11px;color:var(--text);flex:1;}
+.recipe-locked-icon{font-size:12px;color:var(--dim);}
+
+/* Details Panel */
+.craft-details{width:180px;background:#0d1208;border:1px solid var(--border);border-radius:2px;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.details-empty{font-size:11px;color:var(--dim);text-align:center;padding:20px 0;}
+.details-icon{font-size:40px;text-align:center;padding:10px 0;}
+.details-name{font-family:'Russo One',sans-serif;font-size:14px;color:var(--text);text-align:center;letter-spacing:1px;}
+.details-description{font-size:10px;color:var(--dim);line-height:1.5;text-align:center;}
+.details-stats{font-size:10px;color:var(--text);background:#111510;border:1px solid var(--border);border-radius:2px;padding:8px;}
+.details-stat-row{display:flex;justify-content:space-between;margin-bottom:4px;}
+.details-stat-row:last-child{margin-bottom:0;}
+.details-requirements{font-size:10px;color:var(--text);}
+.details-req-row{display:flex;justify-content:space-between;margin-bottom:4px;}
+.details-req-row:last-child{margin-bottom:0;}
+.details-req-met{color:var(--green);}
+.details-req-unmet{color:var(--red);}
+.details-station{font-size:10px;color:var(--yellow);text-align:center;padding:6px;background:#1a2010;border:1px solid var(--border);border-radius:2px;}
+.details-craft-btn{background:var(--gdim);border:1px solid #2a5a30;color:var(--green);font-family:'Russo One',sans-serif;font-size:12px;padding:10px;cursor:pointer;border-radius:2px;transition:all .15s;letter-spacing:2px;}
+.details-craft-btn:hover:not(:disabled){background:#2a5a30;border-color:var(--green);}
+.details-craft-btn:disabled{opacity:.4;cursor:not-allowed;}
+
 /* MINIMAP */
 #minimap{position:fixed;top:12px;right:12px;width:110px;height:110px;border:1px solid var(--border);background:#0a0c08;border-radius:3px;display:none;z-index:10;}
 /* OVERLAYS */
@@ -99,6 +139,8 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 #rbtn:hover{background:#5a1010;}
 /* WAVE */
 #walert{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Russo One',sans-serif;font-size:32px;color:var(--red);text-shadow:0 0 20px #ef444488;letter-spacing:4px;opacity:0;pointer-events:none;z-index:15;text-align:center;transition:opacity .3s;}
+/* INTERACTION PROMPT */
+#iprompt{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);font-family:'Share Tech Mono',monospace;font-size:14px;color:var(--green);background:#0d1208cc;border:1px solid var(--border);padding:8px 16px;border-radius:3px;pointer-events:none;opacity:0;transition:opacity .2s;z-index:10;backdrop-filter:blur(4px);text-align:center;}
 </style>
 </head>
 <body>
@@ -150,26 +192,35 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
 </div>
 
 <!-- CRAFT panel — left middle -->
-<div class="fp" id="fp-craft">
+<div class="fp" id="fp-craft" style="min-width: 520px; max-width: 620px;">
   <div class="fpt">🔨 Crafting <span class="fpc" onclick="closePanel('craft')">✕</span></div>
-  <button class="cbtn" id="craft-hatchet"  onclick="craft('hatchet')"> 🪓 Hatchet  <span class="cc">5🪵 3🪨</span></button>
-  <button class="cbtn" id="craft-pickaxe"  onclick="craft('pickaxe')"> ⛏ Pickaxe  <span class="cc">5🪵 8🪨</span></button>
-  <button class="cbtn" id="craft-campfire" onclick="craft('campfire')">🔥 Campfire <span class="cc">8🪵</span></button>
-  <button class="cbtn" id="craft-torch"    onclick="craft('torch')">   🕯 Torch    <span class="cc">3🪵 1🌿</span></button>
-  <button class="cbtn" id="craft-wall"     onclick="craft('wall')">    🧱 Wall     <span class="cc">10🪵 5🪨</span></button>
-  <button class="cbtn" id="craft-spikes"   onclick="craft('spikes')">  🪤 Spikes   <span class="cc">5🪨 3⚙️</span></button>
-  <button class="cbtn" id="craft-bow"      onclick="craft('bow')">     🏹 Bow      <span class="cc">8🪵 3🌿</span></button>
-  <button class="cbtn" id="craft-bandage"  onclick="craft('bandage')"> 🩹 Bandage  <span class="cc">4🌿</span></button>
-  <button class="cbtn" id="craft-stew"     onclick="craft('stew')">    🍲 Stew     <span class="cc">4🌿 2🪵</span></button>
-  <button class="cbtn" id="craft-sword"    onclick="craft('sword')">   ⚔️ Sword    <span class="cc">5🪵 8⚙️</span></button>
-  <button class="cbtn" id="craft-shield"   onclick="craft('shield')">  🛡️ Shield   <span class="cc">8🪵 6⚙️</span></button>
-  <button class="cbtn" id="craft-armor"    onclick="craft('armor')">   🦺 Armor    <span class="cc">12⚙️ 4🪨</span></button>
-  <button class="cbtn" id="craft-medkit"   onclick="craft('medkit')">  🏥 Medkit   <span class="cc">6🌿 2⚙️</span></button>
-  <button class="cbtn" id="craft-crossbow" onclick="craft('crossbow')">🏹 Crossbow <span class="cc">10🪵 5⚙️</span></button>
-  <button class="cbtn" id="craft-furnace"  onclick="craft('furnace')"> 🔥 Furnace  <span class="cc">15🪨 8⚙️</span></button>
-  <button class="cbtn" id="craft-trap"     onclick="craft('trap')">    🪤 Trap     <span class="cc">6🪵 4⚙️</span></button>
-  <button class="cbtn" id="craft-lantern"  onclick="craft('lantern')"> 🏮 Lantern  <span class="cc">5⚙️ 3🪵</span></button>
-  <button class="cbtn" id="craft-backpack" onclick="craft('backpack')"> 🎒 Backpack <span class="cc">15🪵 10🪨 5🌿</span></button>
+  
+  <div class="craft-container">
+    <!-- Category Sidebar -->
+    <div class="craft-sidebar">
+      <div class="craft-category active" data-category="weapons">⚔️ Weapons</div>
+      <div class="craft-category" data-category="tools">🔧 Tools</div>
+      <div class="craft-category" data-category="resources">📦 Resources</div>
+      <div class="craft-category" data-category="food">🍖 Food</div>
+      <div class="craft-category" data-category="medical">💊 Medical</div>
+      <div class="craft-category" data-category="structures">🏗️ Structures</div>
+      <div class="craft-category" data-category="utility">🛡️ Utility</div>
+      <div class="craft-category" data-category="advanced">⚡ Advanced</div>
+    </div>
+    
+    <!-- Recipe List -->
+    <div class="craft-recipe-list">
+      <div class="recipe-list-header" id="recipe-list-header">Weapons</div>
+      <div class="recipe-list-content" id="recipe-list-content">
+        <!-- Recipe items populated by JS -->
+      </div>
+    </div>
+    
+    <!-- Details Panel -->
+    <div class="craft-details" id="craft-details">
+      <div class="details-empty">Select a recipe to view details</div>
+    </div>
+  </div>
 </div>
 
 <!-- RESOURCES panel — bottom right -->
@@ -254,8 +305,51 @@ body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monosp
   <div id="trade-items" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:200px;overflow-y:auto;"></div>
 </div>
 
+<!-- WORKBENCH panel -->
+<div class="fp" id="fp-workbench" style="left:50%;top:50%;transform:translate(-50%,-50%);min-width:320px;">
+  <div class="fpt">🔨 Workbench <span class="fpc" onclick="closeWorkbench()">✕</span></div>
+  <div style="font-size:10px;color:var(--dim);margin-bottom:8px;">Advanced crafting station</div>
+  <div id="workbench-items" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:250px;overflow-y:auto;"></div>
+</div>
+
+<!-- FURNACE panel -->
+<div class="fp" id="fp-furnace" style="left:50%;top:50%;transform:translate(-50%,-50%);min-width:300px;">
+  <div class="fpt">🔥 Furnace <span class="fpc" onclick="closeFurnace()">✕</span></div>
+  <div style="font-size:10px;color:var(--dim);margin-bottom:8px;">Smelt ores and refine materials</div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px;background:#0d1208;border:1px solid var(--border);border-radius:2px;">
+      <span style="font-size:16px;">⚙️</span>
+      <div style="flex:1;">
+        <div style="font-size:11px;color:var(--text);">Metal Ore</div>
+        <div style="font-size:10px;color:var(--dim);">Requires: 1 Coal</div>
+      </div>
+      <button onclick="smeltMetal()" style="font-size:10px;padding:4px 8px;background:var(--gdim);border:1px solid var(--border);color:var(--green);cursor:pointer;border-radius:2px;">Smelt</button>
+    </div>
+    <div style="font-size:10px;color:var(--dim);border-top:1px solid var(--border);padding-top:8px;">
+      <div>Fuel: <span id="furnace-fuel">0</span> Coal</div>
+    </div>
+  </div>
+</div>
+
+<!-- CHEST panel -->
+<div class="fp" id="fp-chest" style="left:50%;top:50%;transform:translate(-50%,-50%);min-width:350px;">
+  <div class="fpt">📦 Chest <span class="fpc" onclick="closeChest()">✕</span></div>
+  <div style="display:flex;gap:8px;">
+    <div style="flex:1;">
+      <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">Chest Storage</div>
+      <div id="chest-slots" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;"></div>
+    </div>
+    <div style="width:1px;background:var(--border);"></div>
+    <div style="flex:1;">
+      <div style="font-size:10px;color:var(--dim);margin-bottom:4px;">Your Hotbar</div>
+      <div id="chest-hotbar" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;"></div>
+    </div>
+  </div>
+</div>
+
 <div id="log"></div>
 <div id="walert"></div>
+<div id="iprompt">Press E to interact</div>
 
 <div id="dscr">
   <h2>☠ YOU DIED</h2>
@@ -292,10 +386,10 @@ window.updHotbar = function() {
 
 // ═══ CONSTANTS ═══
 const TILE=40,MAP_W=64,MAP_H=64,DAY_DUR=240,PR=8,GR=TILE*1.5;
-const T={GRASS:0,TREE:1,ROCK:2,WATER:3,SAND:4,ORE:5,PLANT:6,FIRE:7,WALL:8,SPIKE:9,TORCH:10};
+const T={GRASS:0,TREE:1,ROCK:2,WATER:3,SAND:4,ORE:5,PLANT:6,FIRE:7,WALL:8,SPIKE:9,TORCH:10,FURNACE:11,WORKBENCH:12,CHEST:13};
 const WEATHER={CLEAR:0,RAIN:1,SNOW:2,FOG:3,STORM:4};
-const SOLID=new Set([T.WATER,T.TREE,T.ROCK,T.ORE]);
-const TCOL={0:'#1a2e10',1:'#0d2008',2:'#2a2520',3:'#0a1a2a',4:'#2a2010',5:'#1a1520',6:'#162a08',7:'#3a2000',8:'#2a2520',9:'#221a10',10:'#1a1800'};
+const SOLID=new Set([T.WATER,T.TREE,T.ROCK,T.ORE,T.WALL,T.FURNACE,T.WORKBENCH,T.CHEST]);
+const TCOL={0:'#1a2e10',1:'#0d2008',2:'#2a2520',3:'#0a1a2a',4:'#2a2010',5:'#1a1520',6:'#162a08',7:'#3a2000',8:'#2a2520',9:'#221a10',10:'#1a1800',11:'#2a1a00',12:'#1a2a20',13:'#2a2015'};
 
 // Per-slot stack limits for hotbar
 const STACK_LIMITS={
@@ -447,6 +541,8 @@ function addResource(player, resourceType, amount){
   if(player===S.p){
     updateHotbar();
     updateHUD();
+    // Update crafting UI if panel is open (live resource counts)
+    if(PSTATE.craft) updCraft();
     const icon=RES_ICONS[resourceType]||'📦';
     if(added>0) glog(`+${added} ${icon} ${resourceType}`,'good');
     if(remaining>0) glog(`No hotbar space! ${remaining} ${icon} lost`,'warn');
@@ -1058,6 +1154,25 @@ function findSafeNear(x,y){
   return findSpawn();
 }
 
+// ═══ COLLISION HELPERS ═══
+function isPositionSolid(x, y) {
+  // Check tile collision
+  const tx = ~~(x / TILE);
+  const ty = ~~(y / TILE);
+  if (tx < 0 || ty < 0 || tx >= MAP_W || ty >= MAP_H) return true;
+  const tile = S.map[ty][tx];
+  if (SOLID.has(tile.t)) return true;
+
+  // Check object collision
+  for (const o of S.objs) {
+    if (Math.hypot(o.x - x, o.y - y) < TILE * 0.8) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // ═══ GHOULS ═══
 const GDEF={
   walker:{hp:50,spd:45,dmg:12,em:'👻',xp:25},
@@ -1274,8 +1389,40 @@ function update(dt){
       }
     }
     
-    // Movement
-    if(dist>2){const s=g.spd*dt;g.x+=ddx/dist*s;g.y+=ddy/dist*s;}
+    // Movement with collision detection and simple avoidance
+    if(dist>2){
+      const s=g.spd*dt;
+      const nx=g.x+ddx/dist*s;
+      const ny=g.y+ddy/dist*s;
+
+      // Check if new position would collide
+      if(!isPositionSolid(nx, ny)){
+        // Path is clear, move normally
+        g.x=nx;
+        g.y=ny;
+      } else {
+        // Collision detected - try simple directional avoidance
+        // Try moving perpendicular to the direction
+        const perpX=-ddy/dist*s;
+        const perpY=ddx/dist*s;
+
+        // Try both perpendicular directions
+        const tryX1=g.x+perpX;
+        const tryY1=g.y+perpY;
+        const tryX2=g.x-perpX;
+        const tryY2=g.y-perpY;
+
+        if(!isPositionSolid(tryX1, tryY1)){
+          g.x=tryX1;
+          g.y=tryY1;
+        } else if(!isPositionSolid(tryX2, tryY2)){
+          g.x=tryX2;
+          g.y=tryY2;
+        }
+        // If both perpendicular directions are blocked, zombie stays in place
+        // This prevents jittering against walls
+      }
+    }
     g.acd=Math.max(0,g.acd-dt);
     
     // Attack
@@ -1352,6 +1499,7 @@ function update(dt){
   if(p.hp<=0){die();return;}
   S.stats.surv+=dt;
   updateHUD();updateClock();updateNight();
+  updateInteractionPrompt();
   broadcastState(dt);
 }
 
@@ -1479,6 +1627,230 @@ function executeBossAbility(boss,ability,target){
 }
 
 // ═══ INTERACTION ═══
+let nearbyStructure = null;
+const INTERACTION_RANGE = 80;
+
+function getNearbyStructure(player = S.p) {
+  const interactableTypes = [T.FURNACE, T.WORKBENCH, T.CHEST];
+  
+  // Check placed objects
+  for (const o of S.objs) {
+    if (interactableTypes.includes(o.t)) {
+      const dist = Math.hypot(o.x - player.x, o.y - player.y);
+      if (dist < INTERACTION_RANGE) {
+        return o;
+      }
+    }
+  }
+  
+  return null;
+}
+
+function updateInteractionPrompt(player = S.p) {
+  const prompt = document.getElementById('iprompt');
+  if (!prompt) return;
+  
+  nearbyStructure = getNearbyStructure(player);
+  
+  if (nearbyStructure) {
+    const names = {
+      [T.FURNACE]: 'Furnace',
+      [T.WORKBENCH]: 'Workbench',
+      [T.CHEST]: 'Chest'
+    };
+    const name = names[nearbyStructure.t] || 'Structure';
+    prompt.textContent = `Press E to interact with ${name}`;
+    prompt.style.opacity = '1';
+  } else {
+    prompt.style.opacity = '0';
+  }
+}
+
+function interactWithStructure(player = S.p) {
+  if (!nearbyStructure) return;
+  
+  switch (nearbyStructure.t) {
+    case T.WORKBENCH:
+      openWorkbench();
+      break;
+    case T.FURNACE:
+      openFurnace();
+      break;
+    case T.CHEST:
+      openChest(nearbyStructure);
+      break;
+  }
+}
+
+// Workbench functions
+function openWorkbench() {
+  const panel = document.getElementById('fp-workbench');
+  const itemsDiv = document.getElementById('workbench-items');
+  panel.classList.add('open');
+  
+  // Populate with advanced crafting recipes
+  const advancedRecipes = ['sword', 'shield', 'armor', 'medkit', 'crossbow', 'furnace', 'workbench', 'chest'];
+  itemsDiv.innerHTML = '';
+  
+  advancedRecipes.forEach(id => {
+    const rec = REC[id];
+    if (!rec) return;
+    
+    const btn = document.createElement('button');
+    btn.className = 'cbtn';
+    btn.innerHTML = `${rec.em} ${rec.name} <span class="cc">${Object.entries(rec.cost).map(([k,v]) => `${RES_ICONS[k]||k}${v}`).join(' ')}</span>`;
+    btn.onclick = () => craft(id);
+    itemsDiv.appendChild(btn);
+  });
+  
+  updCraft();
+}
+
+function closeWorkbench() {
+  document.getElementById('fp-workbench').classList.remove('open');
+}
+
+// Furnace functions
+let furnaceFuel = 0;
+
+function openFurnace() {
+  const panel = document.getElementById('fp-furnace');
+  panel.classList.add('open');
+  updateFurnaceUI();
+}
+
+function closeFurnace() {
+  document.getElementById('fp-furnace').classList.remove('open');
+}
+
+function updateFurnaceUI() {
+  document.getElementById('furnace-fuel').textContent = furnaceFuel;
+}
+
+function smeltMetal() {
+  const res = playerRes(S.p);
+  
+  // Check if player has metal ore
+  if ((res.metal || 0) < 1) {
+    glog('No metal ore to smelt!', 'warn');
+    return;
+  }
+  
+  // Check if furnace has fuel (coal)
+  if (furnaceFuel < 1) {
+    glog('Furnace needs coal fuel!', 'warn');
+    return;
+  }
+  
+  // Smelt: consume 1 metal ore and 1 coal fuel
+  // For now, just consume resources (smelting result can be added later)
+  dropResources(S.p, 'metal', 1);
+  furnaceFuel--;
+  updateFurnaceUI();
+  glog('Smelting in progress...', 'good');
+}
+
+// Chest functions
+let currentChest = null;
+let chestInventory = [];
+
+function openChest(chestObj) {
+  currentChest = chestObj;
+  
+  // Initialize chest inventory if not exists
+  if (!chestObj.inventory) {
+    chestObj.inventory = [];
+  }
+  chestInventory = chestObj.inventory;
+  
+  const panel = document.getElementById('fp-chest');
+  panel.classList.add('open');
+  
+  updateChestUI();
+}
+
+function closeChest() {
+  document.getElementById('fp-chest').classList.remove('open');
+  currentChest = null;
+}
+
+function updateChestUI() {
+  const chestSlots = document.getElementById('chest-slots');
+  const hotbarSlots = document.getElementById('chest-hotbar');
+  const hotbar = playerHotbar(S.p);
+  
+  // Render chest slots
+  chestSlots.innerHTML = '';
+  for (let i = 0; i < 12; i++) {
+    const slot = document.createElement('div');
+    slot.style.cssText = 'width:40px;height:40px;background:#111510;border:1px solid var(--border);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;';
+    
+    if (chestInventory[i]) {
+      const item = chestInventory[i];
+      slot.textContent = item.icon || (typeof item === 'string' ? item : '');
+      slot.onclick = () => moveFromChestToHotbar(i);
+    }
+    
+    chestSlots.appendChild(slot);
+  }
+  
+  // Render hotbar slots (skip hand slot)
+  hotbarSlots.innerHTML = '';
+  for (let i = 1; i < hotbar.length; i++) {
+    const slot = document.createElement('div');
+    slot.style.cssText = 'width:40px;height:40px;background:#111510;border:1px solid var(--border);border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;';
+    
+    const s = hotbar[i];
+    if (!slotEmpty(s)) {
+      slot.textContent = slotIcon(s);
+      slot.onclick = () => moveFromHotbarToChest(i);
+    }
+    
+    hotbarSlots.appendChild(slot);
+  }
+}
+
+function moveFromChestToHotbar(chestIndex) {
+  const item = chestInventory[chestIndex];
+  if (!item) return;
+  
+  const hotbar = playerHotbar(S.p);
+  
+  // Find empty hotbar slot
+  for (let i = 1; i < hotbar.length; i++) {
+    if (slotEmpty(hotbar[i])) {
+      hotbar[i] = item;
+      chestInventory.splice(chestIndex, 1);
+      S.p.hotbar = hotbar;
+      syncResFromHotbar(S.p);
+      updateHotbar();
+      updateChestUI();
+      return;
+    }
+  }
+  
+  glog('Hotbar full!', 'warn');
+}
+
+function moveFromHotbarToChest(hotbarIndex) {
+  const hotbar = playerHotbar(S.p);
+  const item = hotbar[hotbarIndex];
+  
+  if (slotEmpty(item) || hotbarIndex === 0) return;
+  
+  // Add to chest inventory
+  if (chestInventory.length < 12) {
+    chestInventory.push(item);
+    hotbar[hotbarIndex] = null;
+    S.p.hotbar = hotbar;
+    syncResFromHotbar(S.p);
+    updateHotbar();
+    updateChestUI();
+  } else {
+    glog('Chest full!', 'warn');
+  }
+}
+
 function getTgt(player=S.p,aim=null){
   const p=player,cv=document.getElementById('canvas'),r=cv.getBoundingClientRect();
   const mx=aim?aim.x:mouse.x-r.left+S.cam.x,my=aim?aim.y:mouse.y-r.top+S.cam.y;
@@ -1491,6 +1863,14 @@ function getTgt(player=S.p,aim=null){
 
 function interact(player=S.p,aim=null){
   if(NET.mode==='guest'&&player===S.p){sendNet({type:'action',action:'interact',aim:currentAim(),name:localName('GUEST')});return;}
+  
+  // Check for nearby structures first
+  const structure = getNearbyStructure(player);
+  if (structure) {
+    interactWithStructure(player);
+    return;
+  }
+  
   const t=getTgt(player,aim);
   if(!t||!t.tile||t.tile.r<=0){glog('Nothing here.');return;}
   const {tile}=t;
@@ -1588,27 +1968,29 @@ function useItem(){
 
 // ═══ CRAFTING ═══
 const REC={
-  hatchet: {cost:{wood:5,stone:3},em:'🪓',name:'Hatchet'},
-  pickaxe: {cost:{wood:5,stone:8},em:'⛏',name:'Pickaxe'},
-  campfire:{cost:{wood:8},em:'🔥',name:'Campfire',place:T.FIRE},
-  torch:   {cost:{wood:3,food:1},em:'🕯',name:'Torch',place:T.TORCH},
-  wall:    {cost:{wood:10,stone:5},em:'🧱',name:'Wall',place:T.WALL},
-  spikes:  {cost:{stone:5,metal:3},em:'🪤',name:'Spikes',place:T.SPIKE},
-  bow:     {cost:{wood:8,food:3},em:'🏹',name:'Bow'},
-  bandage: {cost:{food:4},em:'🩹',name:'Bandage'},
-  stew:    {cost:{food:4,wood:2},em:'🍲',name:'Stew'},
-  sword:   {cost:{wood:5,metal:8},em:'⚔️',name:'Sword'},
-  shield:  {cost:{wood:8,metal:6},em:'🛡️',name:'Shield'},
-  armor:   {cost:{metal:12,stone:4},em:'🦺',name:'Armor'},
-  medkit:  {cost:{food:6,metal:2},em:'🏥',name:'Medkit'},
-  crossbow:{cost:{wood:10,metal:5},em:'🏹',name:'Crossbow'},
-  furnace: {cost:{stone:15,metal:8},em:'🔥',name:'Furnace',place:T.FIRE},
-  watchtower:{cost:{wood:20,stone:10},em:'🏰',name:'Watchtower',place:T.WALL},
-  trap:    {cost:{wood:6,metal:4},em:'🪤',name:'Trap',place:T.SPIKE},
-  lantern: {cost:{metal:5,wood:3},em:'🏮',name:'Lantern',place:T.TORCH},
-  compass: {cost:{metal:3,stone:2},em:'🧭',name:'Compass'},
-  backpack: {cost:{wood:12,stone:8},em:'🎒',name:'Backpack',effect:'inventory'},
-  fishingrod:{cost:{wood:8,metal:2},em:'🎣',name:'Fishing Rod'},
+  hatchet: {cost:{wood:5,stone:3},em:'🪓',name:'Hatchet',category:'tools',description:'Chops trees faster',stats:{damage:5,durability:100},station:null,locked:false,hidden:false,unlockCondition:null},
+  pickaxe: {cost:{wood:5,stone:8},em:'⛏',name:'Pickaxe',category:'tools',description:'Mines rocks faster',stats:{damage:3,durability:100},station:null,locked:false,hidden:false,unlockCondition:null},
+  campfire:{cost:{wood:8},em:'🔥',name:'Campfire',place:T.FIRE,category:'structures',description:'Provides warmth and light',stats:null,station:null,locked:false,hidden:false,unlockCondition:null},
+  torch:   {cost:{wood:3,food:1},em:'🕯',name:'Torch',place:T.TORCH,category:'resources',description:'Portable light source',stats:{light:50},station:null,locked:false,hidden:false,unlockCondition:null},
+  wall:    {cost:{wood:10,stone:5},em:'🧱',name:'Wall',place:T.WALL,category:'structures',description:'Blocks enemies',stats:{health:200},station:null,locked:false,hidden:false,unlockCondition:null},
+  spikes:  {cost:{stone:5,metal:3},em:'🪤',name:'Spikes',place:T.SPIKE,category:'structures',description:'Damages enemies on contact',stats:{damage:10},station:null,locked:false,hidden:false,unlockCondition:null},
+  bow:     {cost:{wood:8,food:3},em:'🏹',name:'Bow',category:'weapons',description:'Ranged weapon',stats:{damage:15,range:150},station:null,locked:false,hidden:false,unlockCondition:null},
+  bandage: {cost:{food:4},em:'🩹',name:'Bandage',category:'medical',description:'Heals minor wounds',stats:{heal:20},station:null,locked:false,hidden:false,unlockCondition:null},
+  stew:    {cost:{food:4,wood:2},em:'🍲',name:'Stew',category:'food',description:'Restores hunger',stats:{hunger:30},station:null,locked:false,hidden:false,unlockCondition:null},
+  sword:   {cost:{wood:5,metal:8},em:'⚔️',name:'Sword',category:'weapons',description:'Melee weapon',stats:{damage:25,durability:150},station:null,locked:false,hidden:false,unlockCondition:null},
+  shield:  {cost:{wood:8,metal:6},em:'🛡️',name:'Shield',category:'utility',description:'Blocks damage',stats:{defense:15,durability:100},station:null,locked:false,hidden:false,unlockCondition:null},
+  armor:   {cost:{metal:12,stone:4},em:'🦺',name:'Armor',category:'utility',description:'Reduces damage taken',stats:{defense:20,durability:200},station:null,locked:false,hidden:false,unlockCondition:null},
+  medkit:  {cost:{food:6,metal:2},em:'🏥',name:'Medkit',category:'medical',description:'Heals serious wounds',stats:{heal:50},station:null,locked:false,hidden:false,unlockCondition:null},
+  crossbow:{cost:{wood:10,metal:5},em:'🏹',name:'Crossbow',category:'weapons',description:'Powerful ranged weapon',stats:{damage:30,range:200},station:null,locked:false,hidden:false,unlockCondition:null},
+  furnace: {cost:{stone:20,metal:10},em:'🔥',name:'Furnace',place:T.FURNACE,category:'structures',description:'Smelts metal ore',stats:null,station:null,locked:false,hidden:false,unlockCondition:null},
+  workbench:{cost:{wood:25,stone:10},em:'🔨',name:'Workbench',place:T.WORKBENCH,category:'structures',description:'Advanced crafting station',stats:null,station:null,locked:false,hidden:false,unlockCondition:null},
+  chest:   {cost:{wood:20,metal:5},em:'📦',name:'Chest',place:T.CHEST,category:'structures',description:'Stores items',stats:{slots:12},station:null,locked:false,hidden:false,unlockCondition:null},
+  watchtower:{cost:{wood:20,stone:10},em:'🏰',name:'Watchtower',place:T.WALL,category:'structures',description:'Provides visibility',stats:{height:3,health:300},station:null,locked:false,hidden:false,unlockCondition:null},
+  trap:    {cost:{wood:6,metal:4},em:'🪤',name:'Trap',place:T.SPIKE,category:'structures',description:'Traps enemies',stats:{damage:15},station:null,locked:false,hidden:false,unlockCondition:null},
+  lantern: {cost:{metal:5,wood:3},em:'🏮',name:'Lantern',place:T.TORCH,category:'resources',description:'Bright light source',stats:{light:100},station:null,locked:false,hidden:false,unlockCondition:null},
+  compass: {cost:{metal:3,stone:2},em:'🧭',name:'Compass',category:'resources',description:'Shows direction',stats:null,station:null,locked:false,hidden:false,unlockCondition:null},
+  backpack: {cost:{wood:12,stone:8},em:'🎒',name:'Backpack',effect:'inventory',category:'utility',description:'Increases inventory space',stats:{slots:10},station:null,locked:false,hidden:false,unlockCondition:null},
+  fishingrod:{cost:{wood:8,metal:2},em:'🎣',name:'Fishing Rod',category:'tools',description:'Catches fish',stats:{durability:80},station:null,locked:false,hidden:false,unlockCondition:null},
 };
 
 function craft(id,player=S.p){
@@ -1661,6 +2043,151 @@ function craft(id,player=S.p){
   if(player===S.p) updateHotbar();
   gainXP(15,player);if(player===S.p)glog(`Crafted ${rec.em} ${rec.name}`,'good');
   if(player===S.p){updCraft();updInv();updateHUD();}
+}
+
+// Crafting UI Controller
+const CRAFTING_UI = {
+  currentCategory: 'weapons',
+  selectedRecipe: null,
+
+  init: function() {
+    this.renderCategories();
+    this.renderRecipeList();
+    this.bindEvents();
+  },
+
+  renderCategories: function() {
+    const categories = document.querySelectorAll('.craft-category');
+    categories.forEach(cat => {
+      cat.classList.remove('active');
+      if (cat.dataset.category === this.currentCategory) {
+        cat.classList.add('active');
+      }
+    });
+  },
+
+  renderRecipeList: function() {
+    const container = document.getElementById('recipe-list-content');
+    const header = document.getElementById('recipe-list-header');
+    container.innerHTML = '';
+
+    header.textContent = this.currentCategory.charAt(0).toUpperCase() + this.currentCategory.slice(1);
+
+    const recipes = Object.entries(REC).filter(([id, rec]) => {
+      if (rec.hidden) return false;
+      return rec.category === this.currentCategory;
+    });
+
+    recipes.forEach(([id, rec]) => {
+      const item = document.createElement('div');
+      item.className = 'recipe-item';
+      if (rec.locked) item.classList.add('locked');
+      if (this.selectedRecipe === id) item.classList.add('selected');
+
+      item.innerHTML = `
+        <span class="recipe-icon">${rec.em}</span>
+        <span class="recipe-name">${rec.name}</span>
+        ${rec.locked ? '<span class="recipe-locked-icon">🔒</span>' : ''}
+      `;
+
+      item.onclick = () => this.selectRecipe(id);
+      container.appendChild(item);
+    });
+  },
+
+  selectRecipe: function(id) {
+    if (REC[id].locked) return;
+
+    this.selectedRecipe = id;
+    this.renderRecipeList();
+    this.renderDetails();
+  },
+
+  renderDetails: function() {
+    const panel = document.getElementById('craft-details');
+
+    if (!this.selectedRecipe) {
+      panel.innerHTML = '<div class="details-empty">Select a recipe to view details</div>';
+      return;
+    }
+
+    const rec = REC[this.selectedRecipe];
+    const res = playerRes(S.p);
+
+    const requirements = Object.entries(rec.cost).map(([resource, amount]) => {
+      const have = res[resource] || 0;
+      const met = have >= amount;
+      return {
+        resource,
+        amount,
+        have,
+        met,
+        icon: RES_ICONS[resource] || '📦'
+      };
+    });
+
+    const allMet = requirements.every(r => r.met);
+
+    let statsHtml = '';
+    if (rec.stats) {
+      const statRows = Object.entries(rec.stats).map(([key, value]) => {
+        const label = key.charAt(0).toUpperCase() + key.slice(1);
+        return `<div class="details-stat-row"><span>${label}</span><span>${value}</span></div>`;
+      }).join('');
+      statsHtml = `<div class="details-stats">${statRows}</div>`;
+    }
+
+    const reqRows = requirements.map(r => `
+      <div class="details-req-row">
+        <span>${r.icon} ${r.resource}</span>
+        <span class="${r.met ? 'details-req-met' : 'details-req-unmet'}">${r.have}/${r.amount}</span>
+      </div>
+    `).join('');
+
+    let stationHtml = '';
+    if (rec.station) {
+      stationHtml = `<div class="details-station">Requires: ${rec.station}</div>`;
+    }
+
+    panel.innerHTML = `
+      <div class="details-icon">${rec.em}</div>
+      <div class="details-name">${rec.name}</div>
+      <div class="details-description">${rec.description || ''}</div>
+      ${statsHtml}
+      <div class="details-requirements">${reqRows}</div>
+      ${stationHtml}
+      <button class="details-craft-btn" onclick="craft('${this.selectedRecipe}')" ${allMet ? '' : 'disabled'}>
+        CRAFT
+      </button>
+    `;
+  },
+
+  switchCategory: function(category) {
+    this.currentCategory = category;
+    this.selectedRecipe = null;
+    this.renderCategories();
+    this.renderRecipeList();
+    this.renderDetails();
+  },
+
+  bindEvents: function() {
+    const categories = document.querySelectorAll('.craft-category');
+    categories.forEach(cat => {
+      cat.onclick = () => this.switchCategory(cat.dataset.category);
+    });
+  },
+
+  update: function() {
+    this.renderRecipeList();
+    this.renderDetails();
+  }
+};
+
+// Update crafting UI after crafting
+function updCraft() {
+  if (CRAFTING_UI) {
+    CRAFTING_UI.update();
+  }
 }
 
 // Building system with ghost preview and validation
@@ -1775,7 +2302,10 @@ function placeObj(type,em,player=S.p){
     [T.WALL]: 'wall',
     [T.SPIKE]: 'spikes', 
     [T.TORCH]: 'torch',
-    [T.FIRE]: 'campfire'
+    [T.FIRE]: 'campfire',
+    [T.FURNACE]: 'furnace',
+    [T.WORKBENCH]: 'workbench',
+    [T.CHEST]: 'chest'
   };
   
   const buildableId = buildableTypes[type];
@@ -1880,6 +2410,21 @@ function render(){
     }
     if(o.t===T.WALL){ctx.fillStyle='#3a3530';ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);ctx.font='22px serif';ctx.fillText('🧱',sx+9,sy+28);}
     if(o.t===T.SPIKE){ctx.font='22px serif';ctx.fillText('🪤',sx+9,sy+28);}
+    if(o.t===T.FURNACE){
+      ctx.fillStyle='#2a1a00';
+      ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);
+      ctx.font='22px serif';ctx.fillText('🔥',sx+9,sy+28);
+    }
+    if(o.t===T.WORKBENCH){
+      ctx.fillStyle='#1a2a20';
+      ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);
+      ctx.font='22px serif';ctx.fillText('🔨',sx+9,sy+28);
+    }
+    if(o.t===T.CHEST){
+      ctx.fillStyle='#2a2015';
+      ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4);
+      ctx.font='22px serif';ctx.fillText('📦',sx+9,sy+28);
+    }
   });
 
   // Loot
@@ -3332,7 +3877,13 @@ function respawn(){document.getElementById('dscr').style.display='none';initAndS
 
 // ═══ PANELS ═══
 const PSTATE={craft:false,skills:false};
-function togglePanel(n){PSTATE[n]=!PSTATE[n];syncPanels();}
+function togglePanel(n){
+  PSTATE[n]=!PSTATE[n];
+  if(n==='craft'&&PSTATE[n]&&CRAFTING_UI){
+    CRAFTING_UI.init();
+  }
+  syncPanels();
+}
 function closePanel(n){PSTATE[n]=false;syncPanels();}
 function syncPanels(){
   const map={craft:'fp-craft',skills:'fp-skills'};
